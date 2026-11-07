@@ -63,6 +63,9 @@ def compute(spot: dict, water: dict, features: list[dict], ctx: dict, w: dict) -
             if f["type"] != kind or f.get("inside_feature") or not extra(f):
                 continue
             m = mult.get(f.get("user_status", "unreviewed"), 0) * _distance_factor(f, w)
+            if f.get("n_images", 1) > 1 and len(f.get("seen_in_images", [1, 2])) == 1 \
+                    and f.get("user_status") != "confirmed":
+                m *= 0.5          # screenshots: seen in only one of several pictures
             if m and (f["confidence"] >= cfg["min_confidence"] or f.get("user_status") == "confirmed"):
                 pts += cfg["each"] * m
                 used.append(f["id"])
@@ -85,6 +88,32 @@ def compute(spot: dict, water: dict, features: list[dict], ctx: dict, w: dict) -
             add("pit_cluster", cb["points"], f"{len(near)} pits within {cb['within_m']} m (a row of houses?)",
                 "computed:DEM")
             break
+
+    # --- screenshot marks: fields and woodland -------------------------------------------------
+    live = [f for f in features if f.get("user_status") != "rejected"]
+    soil = [f for f in live if f.get("kind") in ("soil_dark", "soil_light", "crop_green", "crop_parched")]
+    if soil:
+        clustered = any(f.get("cluster_size", 0) >= 4 for f in soil)
+        add("soil_crop_marks", min(12, 3 * len(soil)) * (1.0 if clustered else 0.5),
+            f"{len(soil)} soil/crop marks" + (" in a cluster" if clustered else ""), "computed:image")
+    grid = [f for f in live if f.get("kind") == "tree_row" and f.get("parallel_rows", 0) >= 3]
+    if grid:
+        add("tree_grid", 6, f"{grid[0]['parallel_rows']} parallel tree rows (planted grid)", "computed:image")
+    woods = [f for f in live if f.get("kind") in ("forest_clearing", "canopy_anomaly")]
+    if woods:
+        add("woodland_anomalies", min(6, 2 * len(woods)), f"{len(woods)} clearings / unusual tree patches",
+            "computed:image")
+
+    rws = [f for f in live if f.get("type") == "row" and f.get("chance", 1) <= 0.30]
+    if rws:
+        best = min(rws, key=lambda f: f["chance"])
+        pts = 15 if best["chance"] <= 0.03 else 10 if best["chance"] < 0.10 else 4
+        if best.get("along_cultivation"):
+            pts /= 2
+        if any(f.get("parallel_rows", 0) >= 2 for f in rws):
+            pts += 5
+        add("regular_rows", pts, f"row of {best['n_patches']} patches every {best['spacing_m']:.0f} m "
+            f"(random chance {best['chance'] * 100:.0f}%)", "computed:image")
 
     # --- what the user knows -----------------------------------------------------------
     f = ctx["finds"]

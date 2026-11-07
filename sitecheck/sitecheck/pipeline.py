@@ -18,7 +18,11 @@ MICRO_RELIEF_MAX_CELL_M = 3.0   # coarser than this, pits and walls are invisibl
 def analyze(dem_path: str, lat: float, lon: float, radius_m: float = 300.0,
             water_path: str | None = None, context_path: str | None = None,
             image_path: str | None = None, weights_path: str | None = None,
-            out_dir: str = "sitecheck_out", dem_label: str | None = None) -> dict:
+            out_dir: str = "sitecheck_out", dem_label: str | None = None,
+            ground_filter: str = "auto", is_dsm: bool | None = None,
+            overlay_path: str | None = None, fetch_info: dict | None = None) -> dict:
+    """ground_filter: 'auto' (on for surface models: ArcticDEM, GLO-30, drone DSM),
+    'on' or 'off'."""
     os.makedirs(out_dir, exist_ok=True)
     full = raster.load_dem(dem_path)
     dem, rc = raster.crop_around(full, lon, lat, radius_m)
@@ -26,6 +30,31 @@ def analyze(dem_path: str, lat: float, lon: float, radius_m: float = 300.0,
     cell = (csx + csy) / 2
     z = terrain.fill_nodata(dem.z.astype("float64"))
     nodata_share = float(np.isnan(dem.z).mean())
+    warnings = []
+
+    # --- is the resolution real? ----------------------------------------------------------
+    interp = raster.interpolation_check(dem.z)
+    if interp["linear_share"] is not None and interp["linear_share"] > 0.4:
+        warnings.append(
+            f"The DEM looks resampled from a much coarser source ({interp['linear_share']:.0%} of cells "
+            "are perfectly linear between neighbours). Its real resolution is several times worse "
+            f"than {cell:.1f} m, so small features cannot be seen. Look for real lidar for this area.")
+
+    # --- surface model -> terrain model -------------------------------------------------------
+    if is_dsm is None:
+        lbl = (dem_label or "").lower()
+        is_dsm = any(k in lbl for k in ("glo-30", "glo30", "copernicus", "arcticdem", "surface", "dsm"))
+    gf_info = None
+    if ground_filter == "on" or (ground_filter == "auto" and is_dsm and cell <= 10):
+        from .ground import dsm_to_dtm
+        z, gf_info = dsm_to_dtm(z, cell)
+        z = z.astype("float64")
+        if gf_info.get("warning"):
+            warnings.append(gf_info["warning"])
+        warnings.append(f"Surface model: trees/buildings were removed by a filter "
+                        f"({gf_info['object_share']:.0%} of the area). Under dense canopy the ground is guessed.")
+    elif is_dsm:
+        warnings.append("Surface model: tree and building heights are included.")
 
     # --- landscape-scale terrain ------------------------------------------------------
     z_smooth = ndi.gaussian_filter(z, max(1.0, 5.0 / cell))   # slope of the ground, not of the noise
@@ -35,7 +64,6 @@ def analyze(dem_path: str, lat: float, lon: float, radius_m: float = 300.0,
     spot = terrain.spot_metrics(z, slope, aspect, tpi_s, tpi_l, rc, cell)
 
     # --- micro-relief ---------------------------------------------------------------------
-    warnings = []
     lrm = terrain.local_relief(z, cell)
     if cell <= MICRO_RELIEF_MAX_CELL_M:
         features = feat.detect_all(z, lrm, cell, aspect, slope)
@@ -46,8 +74,6 @@ def analyze(dem_path: str, lat: float, lon: float, radius_m: float = 300.0,
                         "ditches (need <= 3 m, ideally 1 m lidar). Only landscape metrics were computed.")
     if nodata_share > 0.05:
         warnings.append(f"{nodata_share:.0%} of the window has no elevation data.")
-    if "GLO" in (dem_label or "") or "Copernicus" in (dem_label or ""):
-        warnings.append("Copernicus GLO-30 is a surface model: tree and building heights are included.")
 
     for f in features:
         _georef_feature(f, dem, rc, csx, csy)
@@ -75,7 +101,10 @@ def analyze(dem_path: str, lat: float, lon: float, radius_m: float = 300.0,
         "data": {
             "dem": {"file": os.path.basename(dem_path), "label": dem_label or "user-supplied DEM",
                     "epsg": dem.epsg, "cell_size_m": round(cell, 2), "window_px": list(dem.z.shape),
-                    "nodata_share": round(nodata_share, 3)},
+                    "nodata_share": round(nodata_share, 3), "surface_model": bool(is_dsm),
+                    "ground_filter": gf_info, "interpolation_check": interp},
+            "download": fetch_info,
+            "overlay": os.path.basename(overlay_path) if overlay_path else None,
             "water": os.path.basename(water_path) if water_path else None,
             "user_image": os.path.basename(image_path) if image_path else None,
         },
@@ -97,6 +126,13 @@ def analyze(dem_path: str, lat: float, lon: float, radius_m: float = 300.0,
         shutil.copy(image_path, os.path.join(out_dir, os.path.basename(image_path)))
     layers = {"z": z, "lrm": lrm, "slope": slope, "svf": svf,
               "hillshade": terrain.multi_hillshade(z, csx, csy)}
+    if overlay_path:
+        from .overlay import load_rgb, sample_onto
+        img, ref = load_rgb(overlay_path)
+        layers["overlay"] = sample_onto(dem, img, ref)
+        if layers["overlay"][..., 3].max() == 0:
+            warnings.append("The overlay map does not cover the analysis window (check its georeference).")
+            layers.pop("overlay")
     write_outputs(report, layers, rc, cell, features, out_dir)
     return report
 

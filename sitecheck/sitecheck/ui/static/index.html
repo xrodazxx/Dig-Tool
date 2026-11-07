@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sitecheck</title>
+<style>
+:root{
+  --bg:#14171a; --panel:#1c2024; --panel2:#23282d; --line:#2f363c; --text:#e6e8ea; --muted:#9aa3ab;
+  --accent:#e0a73c; --ok:#4cc38a; --bad:#e5604d; --row:#ff3ec8; --focus:#6fb3ff;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:13px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+button{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:5px 9px;cursor:pointer}
+button:hover{border-color:#4a535b}
+button.primary{background:var(--accent);border-color:var(--accent);color:#1a1a1a;font-weight:600}
+button.on{background:#3a3220;border-color:var(--accent);color:#ffd48a}
+button:disabled{opacity:.45;cursor:default}
+input,select,textarea{background:#101315;border:1px solid var(--line);border-radius:6px;padding:5px 7px;width:100%}
+label{color:var(--muted);font-size:12px}
+h2{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:14px 0 6px;font-weight:600}
+.app{display:grid;grid-template-columns:230px 1fr 340px;grid-template-rows:44px 1fr 26px;height:100vh}
+header{grid-column:1/4;display:flex;align-items:center;gap:12px;padding:0 12px;border-bottom:1px solid var(--line);background:var(--panel)}
+header .logo{font-weight:700;letter-spacing:.02em}
+header .logo span{color:var(--accent)}
+header .area-title{font-weight:600}
+header .sub{color:var(--muted)}
+header .spacer{flex:1}
+aside{background:var(--panel);overflow:auto;padding:8px 10px}
+aside.left{border-right:1px solid var(--line)}
+aside.right{border-left:1px solid var(--line)}
+.arealist .item{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:6px;cursor:pointer;border:1px solid transparent}
+.arealist .item:hover{background:var(--panel2)}
+.arealist .item.sel{background:var(--panel2);border-color:var(--line)}
+.arealist .name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.badge{font-size:11px;padding:1px 6px;border-radius:9px;background:#2b3136;color:var(--muted)}
+.badge.low{background:#2b3136}.badge.moderate{background:#3a3320;color:#f2c96b}
+.badge.elevated{background:#3d2a1f;color:#ff9f6b}.badge.high{background:#41201d;color:#ff7b6b}
+.badge.row{background:#3a1834;color:#ff9be4}
+main{position:relative;overflow:hidden;background:#0d0f11}
+.toolbar{position:absolute;top:8px;left:8px;right:8px;display:flex;gap:6px;flex-wrap:wrap;z-index:5;pointer-events:none}
+.toolbar .grp{display:flex;gap:4px;background:rgba(28,32,36,.92);border:1px solid var(--line);border-radius:8px;padding:4px;pointer-events:auto}
+.toolbar button{padding:4px 8px;border-radius:5px}
+#stage{position:absolute;inset:0;cursor:grab}
+#stage.tool{cursor:crosshair}
+#world{position:absolute;left:0;top:0;transform-origin:0 0}
+#world img{display:block;image-rendering:auto;user-select:none;-webkit-user-drag:none}
+#world svg{position:absolute;left:0;top:0;overflow:visible}
+.hint{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:rgba(20,23,26,.92);border:1px solid var(--line);
+  padding:6px 12px;border-radius:8px;z-index:6;display:none;max-width:70%;text-align:center}
+.empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);text-align:center;padding:40px}
+footer{grid-column:1/4;display:flex;gap:18px;align-items:center;padding:0 12px;border-top:1px solid var(--line);background:var(--panel);color:var(--muted);font-size:12px}
+.card{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin:6px 0}
+.score{display:flex;align-items:baseline;gap:8px}
+.score .num{font-size:26px;font-weight:700}
+.contrib{display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:2px 0;border-bottom:1px dashed #2c3237}
+.contrib .p{color:var(--accent);min-width:36px;text-align:right}
+.filters{display:flex;flex-wrap:wrap;gap:4px}
+.chip{display:flex;align-items:center;gap:5px;padding:2px 7px;border-radius:12px;border:1px solid var(--line);cursor:pointer;font-size:12px;user-select:none}
+.chip.off{opacity:.35}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none}
+.cands .c{display:grid;grid-template-columns:auto 1fr auto;gap:6px;align-items:center;padding:5px 6px;border-radius:6px;cursor:pointer}
+.cands .c:hover{background:var(--panel2)}
+.cands .c.sel{background:#22303d;outline:1px solid var(--focus)}
+.cands .c .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cands .c .m{color:var(--muted);font-size:11px}
+.cands .c.rejected .t{text-decoration:line-through;color:var(--muted)}
+.cands .acts button{padding:1px 6px;font-size:12px}
+.cands .acts .y.on{background:#1d3a2c;border-color:var(--ok);color:#9cf0c4}
+.cands .acts .n.on{background:#3d2220;border-color:var(--bad);color:#ffb0a5}
+.detail{font-size:12px;color:#cdd3d8;white-space:pre-wrap}
+.warn{color:#f2c96b;font-size:12px;margin:4px 0}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.muted{color:var(--muted)}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--muted);border-top-color:var(--accent);border-radius:50%;animation:sp 1s linear infinite;vertical-align:-2px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:50}
+.modal .box{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;width:420px}
+.modal .box h3{margin:0 0 10px}
+.modal .box .acts{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
+.toast{position:fixed;right:16px;bottom:40px;background:var(--panel2);border:1px solid var(--line);padding:8px 12px;border-radius:8px;display:none;z-index:60}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo">site<span>check</span></div>
+    <div class="area-title" id="areaTitle"></div>
+    <div class="sub" id="areaSub"></div>
+    <div class="spacer"></div>
+    <button id="btnPrompt" disabled title="Copy the ready prompt for any AI chat">Copy AI prompt</button>
+    <button id="btnReport" disabled>report.json</button>
+  </header>
+
+  <aside class="left">
+    <h2>Areas</h2>
+    <div class="arealist" id="areaList"></div>
+    <h2>Add</h2>
+    <button id="btnNew" style="width:100%">+ New area from screenshots</button>
+    <div style="height:6px"></div>
+    <button id="btnImport" style="width:100%">Import folder…</button>
+    <p class="muted" style="font-size:11px;margin-top:10px">Folder = one sub-folder per area with screenshots and a .txt with coordinates.</p>
+  </aside>
+
+  <main>
+    <div class="toolbar">
+      <div class="grp" id="layerBtns"></div>
+      <div class="grp">
+        <button data-tool="pan" class="on" title="Drag to move, wheel to zoom">Move</button>
+        <button data-tool="guided" title="Click 2-3 patches you think are houses in a row">Guided row</button>
+        <button data-tool="add" title="Click to add your own hollow">Add pit</button>
+        <button data-tool="spot" title="Click your spot">Spot</button>
+        <button data-tool="scale" title="Click two points, then enter the distance">Scale</button>
+        <button data-tool="mask" title="Drag a rectangle over program buttons / labels">Mask</button>
+      </div>
+      <div class="grp">
+        <button id="btnFit" title="Fit (F)">Fit</button>
+        <button id="btnHideRej" title="Hide rejected">Hide rejected</button>
+      </div>
+    </div>
+    <div id="stage">
+      <div id="world"><img id="img" alt=""><svg id="ov"></svg></div>
+    </div>
+    <div class="empty" id="empty">Choose an area on the left, or add screenshots.</div>
+    <div class="hint" id="hint"></div>
+  </main>
+
+  <aside class="right" id="right">
+    <div id="runCard" class="card">
+      <div class="row2">
+        <div><label>Coordinates</label><input id="inCoords" placeholder="53°00′57″ N, 49°30′57″ E"></div>
+        <div><label>Metres per pixel</label><input id="inMpp" placeholder="unknown → 0.3"></div>
+      </div>
+      <div class="row2" style="margin-top:6px">
+        <div><label>Sun azimuth (opt.)</label><input id="inSun" placeholder="auto"></div>
+        <div style="display:flex;align-items:flex-end"><button class="primary" id="btnRun" style="width:100%">Run analysis</button></div>
+      </div>
+      <div id="jobState" class="muted" style="margin-top:6px"></div>
+    </div>
+
+    <div id="scoreBox"></div>
+
+    <div id="guidedBox" class="card" style="display:none">
+      <b>Guided row</b>
+      <div class="muted" style="font-size:12px;margin:4px 0">Click 2–3 patches you think are houses standing in a row (neighbours, in order).
+        The program continues the line at the same spacing.</div>
+      <div class="row2">
+        <div><label>Kind of patch</label>
+          <select id="gFamily"><option value="auto">auto (from clicks)</option><option>dark/reddish soil</option>
+            <option>light soil</option><option>green crop</option><option>hollow</option></select></div>
+        <div style="display:flex;align-items:flex-end;gap:4px">
+          <button id="gRun" class="primary" disabled>Find row</button><button id="gClear">Clear</button></div>
+      </div>
+      <div id="gOut" class="detail" style="margin-top:6px"></div>
+      <button id="gSave" style="margin-top:6px;display:none">Save row to report</button>
+    </div>
+
+    <h2>Show</h2>
+    <div class="filters" id="filters"></div>
+
+    <h2>Candidates <span class="muted" id="candCount"></span></h2>
+    <div class="cands" id="cands"></div>
+    <div id="detail" class="card detail" style="display:none"></div>
+    <div id="warnBox"></div>
+  </aside>
+
+  <footer>
+    <span id="stMpp"></span><span id="stCursor"></span><span id="stLatLon"></span><span class="spacer"></span>
+    <span class="muted">offline · nothing leaves this computer</span>
+  </footer>
+</div>
+
+<div class="modal" id="mNew"><div class="box">
+  <h3>New area</h3>
+  <label>Name</label><input id="nName" value="area">
+  <label style="display:block;margin-top:8px">Coordinates (any form)</label><input id="nCoords" placeholder="53°27′14.87″ N, 50°48′05.55″ E">
+  <label style="display:block;margin-top:8px">Screenshots of the same place (several seasons help)</label>
+  <input id="nFiles" type="file" multiple accept="image/*">
+  <div class="acts"><button data-close>Cancel</button><button class="primary" id="nOk">Create</button></div>
+</div></div>
+<div class="modal" id="mImport"><div class="box">
+  <h3>Import folder</h3>
+  <label>Path on this computer</label><input id="iPath" placeholder="/home/me/russland">
+  <div class="acts"><button data-close>Cancel</button><button class="primary" id="iOk">Import</button></div>
+</div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const COLORS = {row:"#ff3ec8", guided_row:"#ff3ec8", pit:"#e8452c", snow_patch:"#18c6e6", dark_spot:"#f2b300",
+  green_spot:"#3ccf4e", light_spot:"#ff8c1a", linear:"#d63cd6", rectangle:"#3d8bff", soil_dark:"#b5651d",
+  soil_light:"#f5e6b0", crop_green:"#00e08a", crop_parched:"#ffd400", forest_clearing:"#ffffff",
+  canopy_anomaly:"#ff4fd8", tree_row:"#9b5cff"};
+const NAMES = {row:"regular row", guided_row:"guided row", pit:"hollow", snow_patch:"snow in hollow",
+  dark_spot:"dark spot / bush", green_spot:"lusher growth", light_spot:"light spot", linear:"line (bank / lane)",
+  rectangle:"platform / outline", soil_dark:"dark soil mark", soil_light:"light soil mark", crop_green:"green crop mark",
+  crop_parched:"parched crop mark", forest_clearing:"clearing in wood", canopy_anomaly:"different trees", tree_row:"tree row"};
+const $ = s => document.querySelector(s);
+const S = {areas:[], area:null, data:null, layer:null, tool:"pan", view:{s:1,x:0,y:0}, hidden:new Set(),
+  hideRejected:false, sel:null, seeds:[], guided:null, pend:[], poll:null};
+
+function kindOf(f){ if (f.type==="row") return f.kind==="guided_row"?"guided_row":"row";
+  if (f.type==="mark") return f.kind||"dark_spot";
+  if (f.kind && COLORS[f.kind] && f.type!=="pit") return f.kind; return f.type; }
+function toast(t, ms=2500){ const e=$("#toast"); e.textContent=t; e.style.display="block"; clearTimeout(e._t); e._t=setTimeout(()=>e.style.display="none", ms); }
+async function api(path, opts={}){
+  const r = await fetch(path, opts); const j = await r.json().catch(()=>({}));
+  if (!r.ok) throw new Error(j.error || r.statusText); return j; }
+const post = (p, body) => api(p, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body||{})});
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+/* ---------------- areas ---------------- */
+async function loadAreas(){
+  S.areas = await api("/api/areas");
+  const el = $("#areaList"); el.innerHTML = "";
+  for (const a of S.areas){
+    const d = document.createElement("div"); d.className = "item" + (S.area===a.name?" sel":"");
+    d.innerHTML = `<span class="name">${esc(a.name)}</span>` +
+      (a.status==="running" ? `<span class="spin"></span>` : "") +
+      (a.rows ? `<span class="badge row" title="regular rows">${a.rows} row</span>` : "") +
+      (a.analysed && a.score!==undefined ? `<span class="badge ${a.band}">${Math.round(a.score)}</span>` : `<span class="badge">new</span>`);
+    d.onclick = () => openArea(a.name); el.appendChild(d);
+  }
+}
+async function openArea(name){
+  S.area = name; S.sel = null; S.seeds = []; S.guided = null; S.pend = [];
+  await loadAreas(); await reloadArea(true);
+}
+async function reloadArea(fit){
+  if (!S.area) return;
+  S.data = await api(`/api/areas/${encodeURIComponent(S.area)}`);
+  const d = S.data, st = d.settings || {};
+  $("#empty").style.display = "none";
+  $("#areaTitle").textContent = d.name;
+  $("#areaSub").textContent = st.lat!=null ? `${st.lat.toFixed(5)}, ${st.lon.toFixed(5)}` : "no coordinates";
+  $("#inCoords").value = st.coords_text || (st.lat!=null ? `${st.lat}, ${st.lon}` : "");
+  $("#inMpp").value = st.mpp ?? ""; $("#inSun").value = st.sun_azimuth ?? "";
+  $("#btnPrompt").disabled = $("#btnReport").disabled = !d.report;
+  buildLayers(); renderSide(); setJob(d.job);
+  const img = $("#img"); img.onload = () => { if (fit) fitView(); draw(); };
+  img.src = layerUrl(S.layer);
+  if (img.complete && img.naturalWidth) { if (fit) fitView(); draw(); }
+}
+function layerUrl(l){
+  const a = encodeURIComponent(S.area);
+  if (!S.data.report) return `/api/areas/${a}/input/${encodeURIComponent(S.data.images[0])}`;
+  return `/api/areas/${a}/result/layers/${l}`;
+}
+function buildLayers(){
+  const g = $("#layerBtns"); g.innerHTML = "";
+  const d = S.data;
+  let layers = [];
+  if (d.report){
+    const pics = d.layers.filter(x=>x.startsWith("picture")).sort();
+    pics.forEach((p,i)=>layers.push([p, `Picture ${i+1}`]));
+    if (d.layers.includes("relief.jpg")) layers.push(["relief.jpg","Relief (shading)"]);
+    if (d.layers.includes("anomaly.jpg")) layers.push(["anomaly.jpg","Soil colour"]);
+  } else layers.push(["_input", "Picture 1"]);
+  if (!layers.find(l=>l[0]===S.layer)) S.layer = layers[0][0];
+  layers.forEach(([k,t],i)=>{
+    const b = document.createElement("button"); b.textContent = t; b.title = `key ${i+1}`;
+    if (k===S.layer) b.classList.add("on");
+    b.onclick = () => { S.layer = k; $("#img").src = layerUrl(k); buildLayers(); };
+    g.appendChild(b);
+  });
+}
+
+/* ---------------- side panel ---------------- */
+function feats(){ return (S.data && S.data.features) || []; }
+function renderSide(){
+  const d = S.data, rep = d.report;
+  // score
+  const sb = $("#scoreBox");
+  if (rep){
+    const sc = rep.score;
+    sb.innerHTML = `<div class="card"><div class="score"><span class="num">${Math.round(sc.points)}</span>
+      <span class="badge ${sc.band}">${sc.band}</span><span class="muted">/100 · heuristic, not a probability</span></div>
+      ${sc.contributions.map(c=>`<div class="contrib"><span>${esc(c.why || c.factor)}</span><span class="p">${c.points>0?"+":""}${c.points}</span></div>`).join("")}
+      ${sc.unknown_inputs && sc.unknown_inputs.length ? `<div class="muted" style="font-size:11px;margin-top:4px">unknown: ${sc.unknown_inputs.join(", ")}</div>`:""}</div>`;
+  } else sb.innerHTML = `<div class="card muted">Not analysed yet. Set scale / mask if needed, then <b>Run analysis</b>.</div>`;
+  // filters
+  const fl = $("#filters"); fl.innerHTML = "";
+  const kinds = [...new Set(feats().map(kindOf))];
+  for (const k of kinds){
+    const n = feats().filter(f=>kindOf(f)===k).length;
+    const c = document.createElement("span"); c.className = "chip" + (S.hidden.has(k)?" off":"");
+    c.innerHTML = `<span class="dot" style="background:${COLORS[k]||"#aaa"}"></span>${NAMES[k]||k} <span class="muted">${n}</span>`;
+    c.onclick = () => { S.hidden.has(k) ? S.hidden.delete(k) : S.hidden.add(k); renderSide(); draw(); };
+    fl.appendChild(c);
+  }
+  // list
+  const list = $("#cands"); list.innerHTML = "";
+  const fs = feats().filter(f=>!S.hidden.has(kindOf(f)) && !(S.hideRejected && f.user_status==="rejected"))
+    .sort((a,b)=> (b.type==="row")-(a.type==="row") || b.confidence-a.confidence);
+  $("#candCount").textContent = rep ? `${fs.length}/${feats().length}` : "";
+  for (const f of fs){
+    const k = kindOf(f), el = document.createElement("div");
+    el.className = "c" + (S.sel===f.id?" sel":"") + (f.user_status==="rejected"?" rejected":"");
+    const size = f.type==="row" ? `${f.n_patches} × ${f.spacing_m} m` : (f.diameter_m ? `${f.diameter_m} m` : (f.length_m ? `${f.length_m} m` : ""));
+    const extra = f.type==="row" ? `chance ${(f.chance*100).toFixed(0)}% · ${f.presumption||""}` :
+      `conf ${f.confidence}${f.seen_in_images && f.seen_in_images.length>1 ? " · both pictures" : ""}`;
+    el.innerHTML = `<span class="dot" style="background:${COLORS[k]||"#aaa"}"></span>
+      <div><div class="t">#${f.id} ${NAMES[k]||k} <span class="m">${size}</span></div><div class="m">${extra}</div></div>
+      <div class="acts"><button class="y ${f.user_status==="confirmed"?"on":""}" title="confirm">✓</button><button class="n ${f.user_status==="rejected"?"on":""}" title="reject">✗</button></div>`;
+    el.onclick = (e) => { if (e.target.tagName==="BUTTON") return; select(f.id, true); };
+    el.querySelector(".y").onclick = () => setStatus(f, f.user_status==="confirmed" ? "unreviewed" : "confirmed");
+    el.querySelector(".n").onclick = () => setStatus(f, f.user_status==="rejected" ? "unreviewed" : "rejected");
+    list.appendChild(el);
+  }
+  // detail
+  const det = $("#detail"), f = feats().find(x=>x.id===S.sel);
+  if (f){
+    det.style.display = "block";
+    const rows = [["what", NAMES[kindOf(f)]||kindOf(f)], ["note", f.note], ["signals", (f.signals||[]).join(", ")],
+      ["pictures", (f.seen_in_images||[]).join(", ")], ["confidence", f.confidence],
+      ["position", f.x_m!==undefined ? `${f.x_m} m E, ${f.y_m} m N of the spot` : ""],
+      ["coordinates", f.lat ? `${f.lat}, ${f.lon}` : ""], ["status", f.user_status]];
+    if (f.type==="row") rows.splice(2,0,["spacing", `${f.spacing_m} m (±${Math.round((f.spacing_variation||0)*100)}%)`],
+      ["chance", `${(f.chance*100).toFixed(1)}% (corrected for all searches)`]);
+    det.innerHTML = rows.filter(r=>r[1]!==undefined && r[1]!=="").map(r=>`<b>${r[0]}:</b> ${esc(r[1])}`).join("\n");
+  } else det.style.display = "none";
+  // warnings
+  $("#warnBox").innerHTML = rep ? rep.warnings.map(w=>`<div class="warn">⚠ ${esc(w)}</div>`).join("") : "";
+  const mpp = rep ? rep.data.metres_per_pixel : (d.settings.mpp || null);
+  $("#stMpp").textContent = mpp ? `${mpp} m/px${rep && !rep.data.scale_known ? " (assumed)" : ""}` : "scale unknown";
+}
+async function setStatus(f, st){
+  const body = {confirm:[], reject:[], unreview:[]};
+  ({confirmed:body.confirm, rejected:body.reject, unreviewed:body.unreview})[st].push(f.id);
+  try { await post(`/api/areas/${encodeURIComponent(S.area)}/review`, body); } catch(e){ return toast(e.message); }
+  await reloadArea(false); loadAreas();
+}
+function select(id, center){
+  S.sel = id; renderSide(); draw();
+  const f = feats().find(x=>x.id===id);
+  if (center && f){ const r = $("#stage").getBoundingClientRect();
+    S.view.x = r.width/2 - f.col*S.view.s; S.view.y = r.height/2 - f.row*S.view.s; applyView(); }
+}
+
+/* ---------------- view ---------------- */
+function applyView(){ $("#world").style.transform = `translate(${S.view.x}px,${S.view.y}px) scale(${S.view.s})`; draw(); }
+function fitView(){
+  const img = $("#img"), r = $("#stage").getBoundingClientRect();
+  if (!img.naturalWidth) return;
+  const s = Math.min((r.width-20)/img.naturalWidth, (r.height-60)/img.naturalHeight);
+  S.view = {s, x:(r.width-img.naturalWidth*s)/2, y:(r.height-img.naturalHeight*s)/2+20}; applyView();
+}
+function toImg(ev){ const r = $("#stage").getBoundingClientRect();
+  return {x:(ev.clientX-r.left-S.view.x)/S.view.s, y:(ev.clientY-r.top-S.view.y)/S.view.s}; }
+
+/* ---------------- overlay ---------------- */
+function draw(){
+  const svg = $("#ov"), img = $("#img");
+  if (!img.naturalWidth){ svg.innerHTML = ""; return; }
+  svg.setAttribute("width", img.naturalWidth); svg.setAttribute("height", img.naturalHeight);
+  const k = 1/S.view.s, mpp = S.data.report ? S.data.report.data.metres_per_pixel : (S.data.settings.mpp||0.3);
+  let h = "";
+  const st = S.data.settings || {};
+  for (const m of (st.masks||[])) h += `<rect x="${m[0]}" y="${m[1]}" width="${m[2]-m[0]}" height="${m[3]-m[1]}" fill="rgba(0,0,0,.45)" stroke="#888" stroke-dasharray="${4*k}" stroke-width="${k}"/>`;
+  for (const f of feats()){
+    const kk = kindOf(f); if (S.hidden.has(kk)) continue;
+    if (S.hideRejected && f.user_status==="rejected") continue;
+    const col = f.user_status==="rejected" ? "#777" : (COLORS[kk]||"#fff");
+    const sel = S.sel===f.id, w = (sel?3.2:(f.user_status==="confirmed"?2.4:1.6))*k;
+    const dash = f.user_status==="confirmed" || (f.seen_in_images||[]).length>1 || f.type==="row" ? "" : `stroke-dasharray="${5*k} ${3*k}"`;
+    const g = `data-id="${f.id}" style="cursor:pointer"`;
+    if (f.type==="row"){
+      const [[r1,c1],[r2,c2]] = f.ends_px;
+      h += `<line ${g} x1="${c1}" y1="${r1}" x2="${c2}" y2="${r2}" stroke="${col}" stroke-width="${(sel?4:2.5)*k}" ${f.along_cultivation?`stroke-dasharray="${8*k} ${5*k}"`:""}/>`;
+      const rad = Math.max(8*k, (f.mean_patch_m||8)/mpp/2);
+      for (const [r,c] of f.members_px) h += `<circle ${g} cx="${c}" cy="${r}" r="${rad}" fill="none" stroke="${col}" stroke-width="${2*k}"/>`;
+      for (const [r,c] of (f.expected_but_missing_px||[])) h += `<g ${g}><circle cx="${c}" cy="${r}" r="${rad}" fill="none" stroke="${col}" stroke-dasharray="${3*k} ${3*k}" stroke-width="${1.5*k}"/><text x="${c}" y="${r+4*k}" fill="${col}" font-size="${12*k}" text-anchor="middle">?</text></g>`;
+      h += label(f.ends_px[1][1], f.ends_px[1][0], `#${f.id} ${f.presumption||"row"} · ${(f.chance*100).toFixed(0)}%`, col, k, g);
+      continue;
+    }
+    if (f.type==="linear" && f.ends_px){
+      const [[r1,c1],[r2,c2]] = f.ends_px;
+      h += `<line ${g} x1="${c1}" y1="${r1}" x2="${c2}" y2="${r2}" stroke="${col}" stroke-width="${w}" ${dash}/>`;
+    } else if (f.type==="rectangle" && f.corners_px){
+      h += `<polygon ${g} points="${f.corners_px.map(p=>p.join(",")).join(" ")}" fill="none" stroke="${col}" stroke-width="${w}" ${dash}/>`;
+    } else {
+      const rad = Math.max(7*k, (f.diameter_m||4)/mpp/2 + 3*k);
+      h += `<circle ${g} cx="${f.col}" cy="${f.row}" r="${rad}" fill="${sel?"rgba(111,179,255,.12)":"none"}" stroke="${col}" stroke-width="${w}" ${dash}/>`;
+    }
+    if (S.view.s > 0.6 || sel) h += label(f.col, f.row, `${f.id}`, col, k, g);
+  }
+  // guided preview + seeds + pending marks
+  if (S.guided){
+    const f = S.guided, col = "#7cf3ff";
+    const [[r1,c1],[r2,c2]] = f.ends_px;
+    h += `<line x1="${c1}" y1="${r1}" x2="${c2}" y2="${r2}" stroke="${col}" stroke-width="${3*k}"/>`;
+    for (const [r,c] of f.members_px) h += `<circle cx="${c}" cy="${r}" r="${Math.max(8*k, 4/mpp)}" fill="none" stroke="${col}" stroke-width="${2.2*k}"/>`;
+    for (const [r,c] of f.expected_but_missing_px) h += `<circle cx="${c}" cy="${r}" r="${Math.max(8*k, 4/mpp)}" fill="none" stroke="${col}" stroke-dasharray="${3*k} ${3*k}" stroke-width="${1.5*k}"/><text x="${c}" y="${r+4*k}" fill="${col}" font-size="${13*k}" text-anchor="middle">?</text>`;
+  }
+  S.seeds.forEach((p,i)=>{ h += `<circle cx="${p.x}" cy="${p.y}" r="${7*k}" fill="#7cf3ff" stroke="#003" stroke-width="${1.5*k}"/><text x="${p.x}" y="${p.y+4*k}" font-size="${10*k}" text-anchor="middle" fill="#003" font-weight="700">${i+1}</text>`; });
+  S.pend.forEach(p=>{ h += `<circle cx="${p.x}" cy="${p.y}" r="${5*k}" fill="#ffd48a"/>`; });
+  if (st.spot_px || (S.data.report && S.data.report.spot.spot_px)){
+    const [x,y] = st.spot_px || S.data.report.spot.spot_px;
+    h += `<g stroke-width="${3*k}"><line x1="${x-14*k}" y1="${y}" x2="${x+14*k}" y2="${y}" stroke="#000"/><line x1="${x}" y1="${y-14*k}" x2="${x}" y2="${y+14*k}" stroke="#000"/></g>
+          <g stroke-width="${1.4*k}"><line x1="${x-12*k}" y1="${y}" x2="${x+12*k}" y2="${y}" stroke="#fff"/><line x1="${x}" y1="${y-12*k}" x2="${x}" y2="${y+12*k}" stroke="#fff"/></g>`;
+  }
+  if (S.drag && S.drag.rect){ const r = S.drag.rect;
+    h += `<rect x="${Math.min(r.x0,r.x1)}" y="${Math.min(r.y0,r.y1)}" width="${Math.abs(r.x1-r.x0)}" height="${Math.abs(r.y1-r.y0)}" fill="rgba(224,167,60,.2)" stroke="#e0a73c" stroke-width="${1.5*k}"/>`; }
+  svg.innerHTML = h;
+}
+function label(x, y, t, col, k, g){
+  return `<text ${g} x="${x+9*k}" y="${y-9*k}" font-size="${11*k}" font-weight="700" fill="#fff" stroke="#000" stroke-width="${3*k}" paint-order="stroke">${esc(t)}</text>`;
+}
+
+/* ---------------- tools ---------------- */
+const HINTS = {guided:"Click 2–3 neighbouring patches of a suspected row, then “Find row” on the right. Esc to cancel.",
+  add:"Click where you see a hollow the program missed.", spot:"Click your spot (centre of interest).",
+  scale:"Click the two ends of something you measured (e.g. with the Google Earth ruler).",
+  mask:"Drag a rectangle over program buttons or text; re-run the analysis afterwards."};
+function setTool(t){
+  S.tool = t; S.pend = [];
+  document.querySelectorAll("[data-tool]").forEach(b=>b.classList.toggle("on", b.dataset.tool===t));
+  $("#stage").classList.toggle("tool", t!=="pan");
+  const h = $("#hint"); h.textContent = HINTS[t] || ""; h.style.display = HINTS[t] ? "block" : "none";
+  $("#guidedBox").style.display = t==="guided" ? "block" : "none";
+  draw();
+}
+document.querySelectorAll("[data-tool]").forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
+
+const stage = $("#stage");
+stage.addEventListener("wheel", e=>{
+  e.preventDefault(); if (!S.data) return;
+  const r = stage.getBoundingClientRect(), mx = e.clientX-r.left, my = e.clientY-r.top;
+  const f = Math.exp(-e.deltaY*0.0015), s = Math.min(20, Math.max(0.05, S.view.s*f));
+  S.view.x = mx - (mx-S.view.x)*s/S.view.s; S.view.y = my - (my-S.view.y)*s/S.view.s; S.view.s = s; applyView();
+}, {passive:false});
+stage.addEventListener("mousedown", e=>{
+  if (!S.data) return;
+  const p = toImg(e);
+  S.drag = {sx:e.clientX, sy:e.clientY, vx:S.view.x, vy:S.view.y, moved:false};
+  if (S.tool==="mask") S.drag.rect = {x0:p.x, y0:p.y, x1:p.x, y1:p.y};
+});
+window.addEventListener("mousemove", e=>{
+  if (S.data && e.target.closest && e.target.closest("#stage")){
+    const p = toImg(e), mpp = S.data.report ? S.data.report.data.metres_per_pixel : null;
+    $("#stCursor").textContent = `x ${p.x.toFixed(0)}, y ${p.y.toFixed(0)}`;
+    const rep = S.data.report;
+    if (rep && rep.spot.lat!=null && mpp){
+      const [sx,sy] = rep.spot.spot_px, e_ = (p.x-sx)*mpp, n_ = (sy-p.y)*mpp;
+      const lat = rep.spot.lat + n_/110574, lon = rep.spot.lon + e_/(111320*Math.cos(rep.spot.lat*Math.PI/180));
+      $("#stLatLon").textContent = `${lat.toFixed(6)}, ${lon.toFixed(6)} · ${Math.hypot(e_,n_).toFixed(0)} m from spot`;
+    }
+  }
+  if (!S.drag) return;
+  const dx = e.clientX-S.drag.sx, dy = e.clientY-S.drag.sy;
+  if (Math.abs(dx)+Math.abs(dy) > 4) S.drag.moved = true;
+  if (S.drag.rect){ const p = toImg(e); S.drag.rect.x1 = p.x; S.drag.rect.y1 = p.y; draw(); }
+  else if (S.drag.moved){ S.view.x = S.drag.vx+dx; S.view.y = S.drag.vy+dy; applyView(); }
+});
+window.addEventListener("mouseup", async e=>{
+  const d = S.drag; S.drag = null; if (!d) return;
+  if (d.rect){
+    const r = d.rect, x0 = Math.min(r.x0,r.x1), x1 = Math.max(r.x0,r.x1), y0 = Math.min(r.y0,r.y1), y1 = Math.max(r.y0,r.y1);
+    if (x1-x0 > 5 && y1-y0 > 5){
+      const masks = (S.data.settings.masks||[]).concat([[Math.round(x0),Math.round(y0),Math.round(x1),Math.round(y1)]]);
+      await post(`/api/areas/${encodeURIComponent(S.area)}/settings`, {masks});
+      toast("Mask added — run the analysis again"); await reloadArea(false);
+    }
+    draw(); return;
+  }
+  if (d.moved) return;
+  if (!e.target.closest || !e.target.closest("#stage")) return;
+  const p = toImg(e);
+  const hit = e.target.closest("[data-id]");
+  if (S.tool==="pan"){ if (hit) select(+hit.dataset.id, false); return; }
+  if (S.tool==="guided"){ if (S.seeds.length>=3) S.seeds.shift(); S.seeds.push(p); S.guided = null; $("#gOut").textContent=""; $("#gSave").style.display="none";
+    $("#gRun").disabled = S.seeds.length<2; draw(); return; }
+  if (S.tool==="add"){
+    if (!S.data.report) return toast("Run the analysis first");
+    await post(`/api/areas/${encodeURIComponent(S.area)}/review`, {add:[{row:p.y, col:p.x, type:"pit", size:5}]});
+    toast("Hollow added"); await reloadArea(false); return; }
+  if (S.tool==="spot"){
+    await post(`/api/areas/${encodeURIComponent(S.area)}/settings`, {spot_px:[Math.round(p.x),Math.round(p.y)]});
+    toast("Spot set — run the analysis again to update distances"); await reloadArea(false); return; }
+  if (S.tool==="scale"){
+    S.pend.push(p); draw();
+    if (S.pend.length===2){
+      const m = prompt("Real distance between the two points, in metres:");
+      const [a,b] = S.pend; S.pend = [];
+      if (m && +m>0){ const s = await post(`/api/areas/${encodeURIComponent(S.area)}/settings`, {known:[a.x,a.y,b.x,b.y,+m]});
+        toast(`Scale: ${s.mpp} m per pixel — run the analysis again`); await reloadArea(false); }
+      draw();
+    }
+  }
+});
+window.addEventListener("keydown", e=>{
+  if (e.target.tagName==="INPUT" || e.target.tagName==="TEXTAREA") return;
+  if (e.key==="Escape"){ S.seeds=[]; S.guided=null; setTool("pan"); }
+  if (e.key==="f" || e.key==="F") fitView();
+  const n = parseInt(e.key); const bs = document.querySelectorAll("#layerBtns button");
+  if (n>=1 && n<=bs.length) bs[n-1].click();
+});
+
+/* ---------------- guided row ---------------- */
+$("#gClear").onclick = () => { S.seeds=[]; S.guided=null; $("#gOut").textContent=""; $("#gSave").style.display="none"; $("#gRun").disabled=true; draw(); };
+$("#gRun").onclick = async () => {
+  if (!S.data.report) return toast("Run the analysis first");
+  $("#gOut").innerHTML = `<span class="spin"></span> searching…`;
+  try {
+    S.guided = await post(`/api/areas/${encodeURIComponent(S.area)}/guided`,
+      {seeds:S.seeds.map(p=>[p.y,p.x]), family:$("#gFamily").value});
+    const g = S.guided;
+    $("#gOut").innerHTML = `<b style="color:${g.presumption==="presumption"?"#9cf0c4":g.presumption==="weak presumption"?"#f2c96b":"#ffb0a5"}">${esc(g.presumption)}</b> · ${esc(g.patch_family)}\n${esc(g.note)}`;
+    $("#gSave").style.display = "inline-block";
+  } catch(e){ $("#gOut").textContent = e.message; }
+  draw();
+};
+$("#gSave").onclick = async () => {
+  await post(`/api/areas/${encodeURIComponent(S.area)}/review`, {extra_features:[S.guided]});
+  S.guided = null; S.seeds = []; $("#gOut").textContent = "Saved."; $("#gSave").style.display="none";
+  await reloadArea(false); loadAreas();
+};
+
+/* ---------------- run / settings ---------------- */
+async function saveSettings(){
+  const body = {coords_text:$("#inCoords").value.trim() || undefined,
+    mpp: $("#inMpp").value.trim() ? +$("#inMpp").value : null,
+    sun_azimuth: $("#inSun").value.trim() ? +$("#inSun").value : null};
+  if (body.mpp!==null) body.known = null;
+  await post(`/api/areas/${encodeURIComponent(S.area)}/settings`, body);
+}
+$("#btnRun").onclick = async () => {
+  if (!S.area) return;
+  try { await saveSettings(); } catch(e){ return toast(e.message); }
+  const j = await post(`/api/areas/${encodeURIComponent(S.area)}/run`); setJob(j); poll();
+};
+function setJob(j){
+  const el = $("#jobState");
+  if (!j || !j.state || j.state==="idle"){ el.textContent = ""; $("#btnRun").disabled = false; return; }
+  if (j.state==="running"){ el.innerHTML = `<span class="spin"></span> analysing… (${Math.round((Date.now()/1000 - j.started))} s)`; $("#btnRun").disabled = true; }
+  else if (j.state==="error"){ el.innerHTML = `<span style="color:var(--bad)">error: ${esc(j.error)}</span>`; $("#btnRun").disabled = false; }
+  else { el.textContent = "done"; $("#btnRun").disabled = false; }
+}
+function poll(){
+  clearTimeout(S.poll);
+  S.poll = setTimeout(async ()=>{
+    const a = S.area; const j = await api(`/api/areas/${encodeURIComponent(a)}/job`);
+    if (a!==S.area) return; setJob(j);
+    if (j.state==="running") poll(); else { await reloadArea(true); loadAreas(); }
+  }, 1500);
+}
+$("#btnFit").onclick = fitView;
+$("#btnHideRej").onclick = () => { S.hideRejected = !S.hideRejected; $("#btnHideRej").classList.toggle("on", S.hideRejected); renderSide(); draw(); };
+$("#btnPrompt").onclick = async () => {
+  const t = await (await fetch(`/api/areas/${encodeURIComponent(S.area)}/result/prompt.md`)).text();
+  try { await navigator.clipboard.writeText(t); toast("Prompt copied — paste into any AI chat and attach the images from the result folder"); }
+  catch { const w = window.open("", "_blank"); w.document.write(`<pre>${esc(t)}</pre>`); }
+};
+$("#btnReport").onclick = () => window.open(`/api/areas/${encodeURIComponent(S.area)}/result/report.json`, "_blank");
+
+/* ---------------- modals ---------------- */
+function modal(id, show){ $(id).style.display = show ? "flex" : "none"; }
+document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>b.closest(".modal").style.display="none");
+$("#btnNew").onclick = () => modal("#mNew", true);
+$("#btnImport").onclick = () => modal("#mImport", true);
+$("#nOk").onclick = async () => {
+  const fd = new FormData(); fd.append("name", $("#nName").value || "area"); fd.append("coords", $("#nCoords").value);
+  for (const f of $("#nFiles").files) fd.append("images", f);
+  try { const r = await api("/api/areas", {method:"POST", body:fd}); modal("#mNew", false); await openArea(r.name); }
+  catch(e){ toast(e.message); }
+};
+$("#iOk").onclick = async () => {
+  try { const r = await post("/api/import", {path:$("#iPath").value.trim()}); modal("#mImport", false);
+    toast(`Imported ${r.created.length} area(s)`); await loadAreas(); if (r.created[0]) openArea(r.created[0]); }
+  catch(e){ toast(e.message); }
+};
+window.addEventListener("resize", ()=>{ if (S.data) draw(); });
+loadAreas();
+</script>
+</body>
+</html>

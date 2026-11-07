@@ -84,6 +84,20 @@ def render(layers, rc, cell, features, out_dir):
     fig.savefig(os.path.join(out_dir, "candidates.png"))
     plt.close(fig)
 
+    if layers.get("overlay") is not None:
+        fig, ax = plt.subplots(figsize=(10, 10), dpi=110)
+        ax.imshow(layers["hillshade"], cmap="gray", extent=ext, vmin=0, vmax=1)
+        ax.imshow(layers["overlay"], extent=ext, alpha=.85)
+        _draw_features(ax, features, rc, cell)
+        ax.plot(0, 0, marker="+", ms=22, mew=2.5, color="black")
+        ax.plot(0, 0, marker="+", ms=18, mew=1.2, color="white")
+        ax.set_title("Historical map with candidates (+ = your spot)")
+        ax.set_xlabel("meters east of the spot")
+        ax.set_ylabel("meters north of the spot")
+        fig.tight_layout()
+        fig.savefig(os.path.join(out_dir, "overlay.png"))
+        plt.close(fig)
+
     # 2) four standard visualisations for the eye and for a multimodal AI
     panels = [("Multi-direction hillshade (contrast-stretched)", layers["hillshade"], "gray",
                _robust(layers["hillshade"], 0.5)),
@@ -117,6 +131,8 @@ def build_prompt(report) -> str:
         "candidates (dashed = I have not checked them yet), `+` is the spot;",
         "- `terrain_panels.png` - hillshade, local relief, slope, sky-view factor.",
     ]
+    if report["data"].get("overlay"):
+        lines.append(f"- `overlay.png` - the historical map `{report['data']['overlay']}` with the same candidates.")
     if report["data"].get("user_image"):
         lines.append(f"- `{report['data']['user_image']}` - my own image of the area.")
     lines += [
@@ -135,7 +151,8 @@ def build_prompt(report) -> str:
         "from the DEM; `x_m`/`y_m` are meters east/north of the spot.",
         "",
         "```json",
-        json.dumps(report, ensure_ascii=False, indent=1),
+        json.dumps(report, ensure_ascii=False, indent=1,
+                   default=lambda o: o.item() if hasattr(o, "item") else str(o)),
         "```",
         "",
     ]
