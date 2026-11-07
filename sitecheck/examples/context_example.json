@@ -1,0 +1,10 @@
+{
+  "geography": {"country": "Finland", "region": "Uusimaa", "nearest_village": "Example"},
+  "water": {"known_water_nearby": "yes", "water_kind": "river", "other_settlements_on_same_water": "yes"},
+  "finds": {"any_finds_nearby": "yes", "distance_from_spot_m": 150,
+            "periods": ["c17", "c18"], "categories": ["coins", "nails", "pottery_sherds"],
+            "description": "two 18th c. copper coins and sherds in a ploughed strip"},
+  "legends": {"any_within_30km": "yes", "text": "an old village burned in the war"},
+  "historical_maps": {"structure_shown": "unknown"},
+  "land_use": "forest"
+}

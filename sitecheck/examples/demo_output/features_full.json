@@ -1,0 +1,382 @@
+[
+ {
+  "type": "pit",
+  "row": 180.01281326216818,
+  "col": 319.9825966864778,
+  "diameter_m": 3.4,
+  "depth_m": 0.48,
+  "volume_m3": 3.0,
+  "roundness": 1.0,
+  "confidence": 1.0,
+  "note": "house/cellar pit, storage pit, crater, quarry pit or root throw",
+  "id": 1,
+  "detected_by": "algorithm",
+  "user_status": "unreviewed",
+  "lat": 60.498367,
+  "lon": 24.905846,
+  "x_m": 120.0,
+  "y_m": 40.0,
+  "distance_from_spot_m": 126.0,
+  "bearing_deg": 72.0
+ },
+ {
+  "type": "pit",
+  "row": 200.04999667074682,
+  "col": 149.99014167683592,
+  "diameter_m": 5.6,
+  "depth_m": 0.74,
+  "volume_m3": 12.3,
+  "roundness": 1.0,
+  "confidence": 1.0,
+  "note": "house/cellar pit, storage pit, crater, quarry pit or root throw",
+  "id": 2,
+  "detected_by": "algorithm",
+  "user_status": "unreviewed",
+  "lat": 60.498186,
+  "lon": 24.902745,
+  "x_m": -50.0,
+  "y_m": 20.0,
+  "distance_from_spot_m": 54.0,
+  "bearing_deg": 292.0
+ },
+ {
+  "type": "pit",
+  "row": 214.9924974091728,
+  "col": 175.05708466168554,
+  "diameter_m": 5.2,
+  "depth_m": 0.52,
+  "volume_m3": 6.2,
+  "roundness": 1.0,
+  "confidence": 1.0,
+  "note": "hollow inside rectangle #12 - sunken floor or cellar?",
+  "id": 3,
+  "detected_by": "algorithm",
+  "user_status": "unreviewed",
+  "inside_feature": 12,
+  "lat": 60.498051,
+  "lon": 24.903202,
+  "x_m": -24.9,
+  "y_m": 5.0,
+  "distance_from_spot_m": 25.0,
+  "bearing_deg": 281.0
+ },
+ {
+  "type": "linear",
+  "relief": "sunken",
+  "row": 104.9284876905041,
+  "col": 150.42907385697538,
+  "length_m": 223.0,
+  "mean_width_m": 3.8,
+  "straightness": 0.98,
+  "orientation_deg": 172.0,
+  "ends_px": [
+   [
+    89.0,
+    261.0
+   ],
+   [
+    120.0,
+    40.0
+   ]
+  ],
+  "confidence": 0.99,
+  "note": "ditch / sunken road; very straight - likely man-made",
+  "id": 4,
+  "detected_by": "algorithm",
+  "user_status": "unreviewed",
+  "lat": 60.499047,
+  "lon": 24.902753,
+  "x_m": -49.6,
+  "y_m": 115.1,
+  "distance_from_spot_m": 125.0,
+  "bearing_deg": 337.0
+ },
+ {
+  "type": "rectangle",
+  "relief": "raised",
+  "shape": "outline",
+  "row": 431.00006103515625,
+  "col": 367.0000305175781,
+  "length_m": 4.2,
+  "width_m": 4.2,
+  "orientation_deg": 135.0,
+  "rectangularity": 0.94,
+  "perimeter_support": 0.91,
+  "corners_px": [
+   [
+    367.0000305175781,
+    434.00006103515625
+   ],
+   [
+    364.0000305175781,
+    431.00006103515625
+   ],
+   [
+    367.0000305175781,
+    428.00006103515625
+   ],
+   [
+    370.0000305175781,
+    431.00006103515625
+   ]
+  ],
+  "confidence": 0.87,
+  "note": "foundation / wall line / bank enclosure",
+  "id": 5,
+  "detected_by": "algorithm",
+  "user_status": "unreviewed",
+  "lat": 60.496098,
+  "lon": 24.906704,
+  "x_m": 167.0,
+  "y_m": -211.0,
+  "distance_from_spot_m": 269.0,
+  "bearing_deg": 142.0
+ },
+ {
+  "type": "rectangle",
+  "relief": "raised",
+  "shape": "outline",
+  "row": 250.00003051757812,
+  "col": 240.0,
+  "length_m": 13.9,
+  "width_m": 8.2,
+  "orientation_deg": 18.0,
+  "rectangularity": 0.82,
+  "perimeter_support": 1.0,
+  "corners_px": [
+   [
+    245.3000030517578,
+    256.10003662109375
+   ],
+   [
+    232.09999084472656,
+    251.7000274658203
+   ],
+   [
+    234.6999969482422,
+    243.90003967285156
+   ],
+   [
+    247.90000915527344,
+    248.30003356933594
+   ]
+  ],
+  "confidence": 0.82,
+  "note": "foundation / wall line / bank enclosure",
+  "id": 6,
+  "detected_by": "algorithm",
+  "user_status": "unreviewed",
+  "lat": 60.497735,
+  "lon": 24.904387,
+  "x_m": 40.0,
+  "y_m": -30.0,
+  "distance_from_spot_m": 50.0,
+  "bearing_deg": 127.0
+ },
+ {
+  "type": "pit",
+  "row": 468.29474313532904,
+  "col": 384.30986889866335,
+  "diameter_m": 3.7,
+  "depth_m": 0.45,
+  "volume_m3": 2.7,
+  "roundness": 0.51,
+  "confidence": 0.81,
+  "note": "house/cellar pit, storage pit, crater, quarry pit or root throw",
+  "id": 7,
+  "detected_by": "algorithm",
+  "user_status": "unreviewed",
+  "lat": 60.49576,
+  "lon": 24.907019,
+  "x_m": 184.3,
+  "y_m": -248.3,
+  "distance_from_spot_m": 309.0,
+  "bearing_deg": 143.0
+ },
+ {
+  "type": "linear",
+  "relief": "sunken",
+  "row": 439.9910371318822,
+  "col": 181.00576184379003,
+  "length_m": 367.0,
+  "mean_width_m": 4.3,
+  "straightness": 0.98,
+  "orientation_deg": 0.0,
+  "ends_px": [
+   [
+    439.0,
+    0.0
+   ],
+   [
+    440.0,
+    365.0
+   ]
+  ],
+  "confidence": 0.79,
+  "note": "ditch / sunken road; very straight - likely man-made; runs along the contour - could also be a natural terrace edge / river bank",
+  "id": 8,
+  "detected_by": "algorithm",
+  "user_status": "unreviewed",
+  "lat": 60.496016,
+  "lon": 24.903311,
+  "x_m": -19.0,
+  "y_m": -220.0,
+  "distance_from_spot_m": 221.0,
+  "bearing_deg": 185.0
+ },
+ {
+  "type": "linear",
+  "relief": "sunken",
+  "row": 384.62002412545235,
+  "col": 400.60796139927623,
+  "length_m": 177.0,
+  "mean_width_m": 4.7,
+  "straightness": 0.31,
+  "orientation_deg": 108.0,
+  "ends_px": [
+   [
+    301.0,
+    400.0
+   ],
+   [
+    469.0,
+    386.0
+   ]
+  ],
+  "confidence": 0.72,
+  "note": "ditch / sunken road; curved - could be a natural gully or stream bed",
+  "id": 9,
+  "detected_by": "algorithm",
+  "user_status": "unreviewed",
+  "lat": 60.496517,
+  "lon": 24.907317,
+  "x_m": 200.6,
+  "y_m": -164.6,
+  "distance_from_spot_m": 259.0,
+  "bearing_deg": 129.0
+ },
+ {
+  "type": "linear",
+  "relief": "sunken",
+  "row": 439.8661257606491,
+  "col": 441.9026369168357,
+  "length_m": 115.0,
+  "mean_width_m": 4.3,
+  "straightness": 0.91,
+  "orientation_deg": 180.0,
+  "ends_px": [
+   [
+    438.0,
+    498.0
+   ],
+   [
+    440.0,
+    384.0
+   ]
+  ],
+  "confidence": 0.71,
+  "note": "ditch / sunken road; very straight - likely man-made; runs along the contour - could also be a natural terrace edge / river bank",
+  "id": 10,
+  "detected_by": "algorithm",
+  "user_status": "unreviewed",
+  "lat": 60.496017,
+  "lon": 24.90807,
+  "x_m": 241.9,
+  "y_m": -219.9,
+  "distance_from_spot_m": 327.0,
+  "bearing_deg": 132.0
+ },
+ {
+  "type": "pit",
+  "row": 250.39274446259742,
+  "col": 240.59513887028953,
+  "diameter_m": 8.9,
+  "depth_m": 0.23,
+  "volume_m3": 8.5,
+  "roundness": 0.52,
+  "confidence": 0.66,
+  "note": "hollow inside rectangle #6 - sunken floor or cellar?",
+  "id": 11,
+  "detected_by": "algorithm",
+  "user_status": "unreviewed",
+  "inside_feature": 6,
+  "lat": 60.497731,
+  "lon": 24.904398,
+  "x_m": 40.6,
+  "y_m": -30.4,
+  "distance_from_spot_m": 51.0,
+  "bearing_deg": 127.0
+ },
+ {
+  "type": "rectangle",
+  "relief": "raised",
+  "shape": "outline",
+  "row": 215.0,
+  "col": 174.5,
+  "length_m": 6.0,
+  "width_m": 5.0,
+  "orientation_deg": 90.0,
+  "rectangularity": 0.85,
+  "perimeter_support": 0.76,
+  "corners_px": [
+   [
+    177.0,
+    218.0
+   ],
+   [
+    172.0,
+    218.0
+   ],
+   [
+    172.0,
+    212.0
+   ],
+   [
+    177.0,
+    212.0
+   ]
+  ],
+  "confidence": 0.64,
+  "note": "foundation / wall line / bank enclosure",
+  "id": 12,
+  "detected_by": "algorithm",
+  "user_status": "unreviewed",
+  "lat": 60.498051,
+  "lon": 24.903192,
+  "x_m": -25.5,
+  "y_m": 5.0,
+  "distance_from_spot_m": 26.0,
+  "bearing_deg": 281.0
+ },
+ {
+  "type": "linear",
+  "relief": "raised",
+  "row": 346.43174603174606,
+  "col": 414.36507936507934,
+  "length_m": 62.0,
+  "mean_width_m": 5.1,
+  "straightness": 0.24,
+  "orientation_deg": 87.0,
+  "ends_px": [
+   [
+    316.0,
+    406.0
+   ],
+   [
+    372.0,
+    409.0
+   ]
+  ],
+  "confidence": 0.52,
+  "note": "bank / embankment / raised road; curved - could be a natural gully or stream bed",
+  "id": 13,
+  "detected_by": "algorithm",
+  "user_status": "unreviewed",
+  "lat": 60.496862,
+  "lon": 24.907568,
+  "x_m": 214.4,
+  "y_m": -126.4,
+  "distance_from_spot_m": 249.0,
+  "bearing_deg": 121.0
+ }
+]

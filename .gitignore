@@ -1,0 +1,31 @@
+# Виртуальные окружения
+venv/
+.venv/
+env/
+ENV/
+
+# Python-кэш
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Сборка/установка
+sitecheck.egg-info/
+*.egg-info/
+build/
+dist/
+.eggs/
+
+# Результаты анализа (личные данные)
+site_*/
+*.npz
+report.json
+prompt.md
+candidates.png
+terrain_panels.png
+
+# ОС и редакторы
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

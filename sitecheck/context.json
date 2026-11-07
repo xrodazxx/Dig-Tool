@@ -1,0 +1,31 @@
+{
+  "geography": {
+    "country": "Russia",
+    "region": "Samara",
+    "nearest_village": "Hilkovo"
+  },
+  "water": {
+    "known_water_nearby": "yes",
+    "water_kind": "river",
+    "user_distance_m": 15.0,
+    "other_settlements_on_same_water": "yes"
+  },
+  "finds": {
+    "any_finds_nearby": "no",
+    "distance_from_spot_m": null,
+    "periods": [],
+    "categories": [],
+    "description": ""
+  },
+  "legends": {
+    "any_within_30km": "no",
+    "text": ""
+  },
+  "historical_maps": {
+    "structure_shown": "yes",
+    "map_name_year": "1912",
+    "what_is_shown": "xutor"
+  },
+  "land_use": "pasture_meadow",
+  "notes": ""
+}
