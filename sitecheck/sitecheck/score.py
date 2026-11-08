@@ -93,9 +93,18 @@ def compute(spot: dict, water: dict, features: list[dict], ctx: dict, w: dict) -
     live = [f for f in features if f.get("user_status") != "rejected"]
     soil = [f for f in live if f.get("kind") in ("soil_dark", "soil_light", "crop_green", "crop_parched")]
     if soil:
-        clustered = any(f.get("cluster_size", 0) >= 4 for f in soil)
-        add("soil_crop_marks", min(12, 3 * len(soil)) * (1.0 if clustered else 0.5),
-            f"{len(soil)} soil/crop marks" + (" in a cluster" if clustered else ""), "computed:image")
+        # Mottled soil gives colour patches anywhere (tested on two marked "nothing ever stood here"
+        # fields: 12/12 points). A patch that comes back in several years is worth more.
+        n_img = max([f.get("n_images", 1) for f in soil] + [1])
+        lasting = [f for f in soil if len(f.get("seen_in_images", [1])) >= 2] if n_img > 1 else []
+        clustered = any(f.get("cluster_size", 0) >= 4 for f in (lasting or soil))
+        if lasting:
+            pts = min(10, 2.5 * len(lasting)) * (1.0 if clustered else 0.6)
+            why = f"{len(lasting)} soil/crop marks seen in 2+ pictures" + (" in a cluster" if clustered else "")
+        else:
+            pts = min(4, 1.0 * len(soil))
+            why = f"{len(soil)} soil/crop marks in one picture only (patchy soil does this too)"
+        add("soil_crop_marks", pts, why, "computed:image")
     grid = [f for f in live if f.get("kind") == "tree_row" and f.get("parallel_rows", 0) >= 3]
     if grid:
         add("tree_grid", 6, f"{grid[0]['parallel_rows']} parallel tree rows (planted grid)", "computed:image")
@@ -104,10 +113,10 @@ def compute(spot: dict, water: dict, features: list[dict], ctx: dict, w: dict) -
         add("woodland_anomalies", min(6, 2 * len(woods)), f"{len(woods)} clearings / unusual tree patches",
             "computed:image")
 
-    rws = [f for f in live if f.get("type") == "row" and f.get("chance", 1) <= 0.30]
+    rws = [f for f in live if f.get("type") == "row" and f.get("chance", 1) <= 0.20]
     if rws:
         best = min(rws, key=lambda f: f["chance"])
-        pts = 15 if best["chance"] <= 0.03 else 10 if best["chance"] < 0.10 else 4
+        pts = 15 if best["chance"] <= 0.03 else 10 if best["chance"] < 0.10 else 3
         if best.get("along_cultivation"):
             pts /= 2
         if any(f.get("parallel_rows", 0) >= 2 for f in rws):

@@ -121,6 +121,10 @@ def main(argv=None):
     p.add_argument("--point", type=_point, help="LAT,LON of the spot (also settles the sun direction)")
     p.add_argument("--spot-px", help="X,Y pixel of the spot in the first image (default: centre)")
     p.add_argument("--mpp", type=float, help="metres per pixel")
+    p.add_argument("--altitude", type=float,
+                   help="Google Earth eye altitude in metres (straight-down view): sets metres per pixel")
+    p.add_argument("--view-width", type=int, default=1920,
+                   help="width of the map window in screen pixels when the screenshot was taken (default 1920)")
     p.add_argument("--known", help="X1,Y1,X2,Y2,METRES: two pixels and the real distance between them")
     p.add_argument("--mask", action="append", default=[], help="X0,Y0,X1,Y1 rectangle to ignore (program UI)")
     p.add_argument("--sun-azimuth", type=float, help="sun azimuth if known (deg from north)")
@@ -140,6 +144,16 @@ def main(argv=None):
     p.add_argument("--workspace", default="sitecheck_workspace")
     p.add_argument("--port", type=int, default=8765)
     p.add_argument("--no-browser", action="store_true")
+
+    p = sub.add_parser("evaluate", help="test screenshot detection on areas you marked in red (known places)")
+    p.add_argument("folder", help="<category>/<area>/ folders: clean picture, a copy with red marks, other seasons")
+    p.add_argument("-o", "--out", help="write marks drawings + evaluation.json here")
+    p.add_argument("--mpp", type=float, default=0.3)
+    p.add_argument("--no-model", action="store_true", help="hand-made detectors only")
+
+    p = sub.add_parser("train", help="train the learned spot detector on areas you marked (needs scikit-learn)")
+    p.add_argument("folder", nargs="+", help="one or more marked packs")
+    p.add_argument("-o", "--out", help="model file (default: replace the shipped sitecheck/model_pits.json)")
 
     p = sub.add_parser("ask", help="fill in the questionnaire")
     p.add_argument("-o", "--out", default="context.json")
@@ -169,6 +183,16 @@ def main(argv=None):
         print(f"\nNow: sitecheck analyze --dem {a.out} --point LAT,LON --dem-label \"{info['label']}\"")
         return 0
 
+    if a.cmd == "evaluate":
+        from .evaluate import run_folder
+        run_folder(a.folder, a.out, a.mpp, use_model=not a.no_model)
+        return 0
+
+    if a.cmd == "train":
+        from .train import main as train_main
+        train_main(a.folder, a.out)
+        return 0
+
     if a.cmd == "ui":
         from .ui.server import serve
         serve(a.workspace, a.port, not a.no_browser)
@@ -186,6 +210,10 @@ def main(argv=None):
         out = a.out or (f"site_{lat:.5f}_{lon:.5f}_img" if lat is not None else "site_images")
         masks = [tuple(map(float, m.split(","))) for m in a.mask]
         spot = tuple(map(float, a.spot_px.split(","))) if a.spot_px else None
+        if a.altitude and not a.mpp:
+            from .scale import mpp_from_altitude
+            a.mpp = round(mpp_from_altitude(a.altitude, a.view_width), 4)
+            print(f"eye altitude {a.altitude:.0f} m, window {a.view_width} px wide -> {a.mpp} m per pixel")
         rep = run_images(a.images, out, lat, lon, a.mpp, a.known, spot, masks, a.sun_azimuth,
                          a.sun_elevation, a.north, a.context, a.weights, a.water_m)
         _print_summary(rep, out)

@@ -82,10 +82,16 @@ def run_batch(folder, out_root, mpp=None, log=print):
                     lat, lon = parse_coords(fh.read())
             except ValueError as ex:
                 log(f"[{name}] {ex}")
+        # eye altitude in the notes ("height 473 m") -> screen scale of the reference picture
+        mpp_d = mpp
+        if mpp is None:
+            from .scale import read_folder
+            sc = read_folder(d, [os.path.basename(p) for p in imgs]).get(os.path.basename(imgs[0]), {})
+            mpp_d = sc.get("mpp")
         out = os.path.join(out_root, name)
-        log(f"[{name}] {len(imgs)} image(s), {lat}, {lon}")
+        log(f"[{name}] {len(imgs)} image(s), {lat}, {lon}" + (f", {mpp_d} m/px" if mpp_d else ""))
         try:
-            rep = run_images(imgs, out, lat, lon, mpp=mpp, masks=[attribution_mask(p) for p in imgs[:1]])
+            rep = run_images(imgs, out, lat, lon, mpp=mpp_d, masks=[attribution_mask(p) for p in imgs[:1]])
         except Exception as ex:  # noqa: BLE001 - one bad area must not stop the batch
             log(f"[{name}] FAILED: {ex}")
             rows.append({"name": name, "error": str(ex)})

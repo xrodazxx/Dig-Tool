@@ -325,6 +325,99 @@ def main():
                 abs(dx - 40) < 3 and abs(dy + 30) < 3, f"symbol at {dx:.1f} m E, {dy:.1f} m N; expected 40, -30")
     ok &= check("overlay.png written", os.path.exists(os.path.join(out, "overlay.png")))
 
+    # ---- Learned spot model (numpy-only tree evaluation) --------------------------------------
+    from sitecheck import learned as LM
+    mdl = LM.load_model()
+    ok &= check("Learned spot model ships with the package", mdl is not None and mdl.get("type") == "gbt",
+                f"{len(mdl['trees']) if mdl else 0} trees, validation {mdl.get('validation') if mdl else None}")
+    rng = np.random.default_rng(5)
+    field = np.clip(0.42 + 0.03 * rng.standard_normal((300, 400, 3)), 0, 1).astype(np.float32)
+    field[..., 1] *= 0.9
+    yy, xx = np.mgrid[:300, :400]
+    for c_ in range(60, 360, 60):                               # light patches
+        field[(yy - 100) ** 2 + (xx - c_) ** 2 < 12 ** 2] += 0.12
+    spots = LM.detect(np.clip(field, 0, 1), model=mdl, min_p=0.0, max_n=200)
+    ok &= check("Learned detector runs without scikit-learn and scores spots in [0,1]",
+                len(spots) > 0 and all(0 <= s_["confidence"] <= 1 for s_ in spots), f"{len(spots)} spots")
+
+    # ---- Two parallel rows of patches = a street --------------------------------------------
+    from sitecheck import patterns as PT
+    mpp_ = 0.5
+    img = np.clip(0.40 + 0.025 * rng.standard_normal((500, 700, 3)), 0, 1).astype(np.float32)
+    img[..., 0] *= 1.15
+    gy, gx = np.mgrid[:500, :700]
+    for row_r in (150, 330):                                    # 90 m apart, houses every 50 m
+        for c_ in range(80, 640, 100):
+            img[(gy - row_r) ** 2 + (gx - c_) ** 2 < 14 ** 2] += 0.15
+    img = np.clip(img, 0, 1)
+    region = np.ones(img.shape[:2], bool)
+    bl, maps = PT.find_blobs(img, region, mpp_, max_m=35.0, return_maps=True)
+    rows = PT.find_rows(bl, region, mpp_, maps=maps)
+    best = rows[0] if rows else None
+    par = PT.parallel_row(best, maps, region, mpp_) if best else None
+    ok &= check("Row of patches found, and the parallel row on the other side of the street",
+                best is not None and par is not None and par["chance"] < 0.05 and abs(par["offset_m"] - 90) < 12,
+                f"row chance {best['chance'] if best else None}, parallel offset "
+                f"{par['offset_m'] if par else None} m, chance {par['chance'] if par else None}")
+
+    # ---- Reading the user's red marks: houses, a road (two lines), a yard, an empty place ----
+    import cv2
+    from sitecheck import groundtruth as GT
+    base = np.clip(0.45 + 0.02 * rng.standard_normal((400, 800, 3)), 0, 1).astype(np.float32)
+    marked = (base * 255).astype(np.uint8).copy()
+    red = (255, 0, 0)
+    cv2.polylines(marked, [np.array([[10, 200], [400, 190], [790, 205]], np.int32)], False, red, 3)   # road
+    cv2.polylines(marked, [np.array([[10, 230], [400, 220], [790, 235]], np.int32)], False, red, 3)
+    cv2.circle(marked, (300, 207), 9, red, 2)                       # a pit circled right on the road
+    for x in (100, 250, 400, 550):                                   # houses above the road
+        cv2.rectangle(marked, (x, 120), (x + 50, 160), red, 3)
+    cv2.ellipse(marked, (200, 320), (120, 50), 0, 0, 360, red, 3)    # a yard with 2 pits inside
+    cv2.circle(marked, (160, 320), 12, red, 2)
+    cv2.circle(marked, (240, 320), 12, red, 2)
+    cv2.ellipse(marked, (650, 320), (40, 25), 0, 20, 330, red, 3)    # an oval left unclosed
+    g = GT.extract(base, marked.astype(np.float32) / 255)
+    rects = sum(o["shape"] == "rectangle" for o in g["objects"])
+    ok &= check("Red marks: 4 houses + 3 pits + unclosed oval, road from two lines, yard not an object",
+                len(g["objects"]) == 8 and rects == 4 and len(g["streets"]) == 1 and g["streets"][0]["double_line"]
+                and g["enclosures"].any() and g["roads"][215, 600],
+                f"{len(g['objects'])} objects ({rects} rectangles), {len(g['streets'])} road(s), "
+                f"yard {'yes' if g['enclosures'].any() else 'no'}")
+
+    # ---- Colour marking scheme + scale notes ------------------------------------------------
+    from sitecheck import scale as SCL
+    notes = SCL.parse_notes("for all height 473 m\n(for (notes,1) images 30 cm in each pixel )\n"
+                            "(for (2,3) images 50 cm in each pixel )", ["1.png", "2.png", "3.png", "notes.png"])
+    per = SCL.parse_notes("(for All images 30 cm in each pixel )\n1) height 493 m\n7) height 1.34 km",
+                          ["1.png", "7.png"])
+    ok &= check("Scale notes: eye altitude -> m/px, imagery resolution per picture",
+                abs(notes["2.png"]["mpp"] - 0.2845) < 0.002 and notes["2.png"]["imagery_m"] == 0.5
+                and notes["notes.png"]["imagery_m"] == 0.3 and abs(per["7.png"]["altitude_m"] - 1340) < 1,
+                f"473 m -> {notes['2.png']['mpp']} m/px; 1.34 km -> {per['7.png']['mpp']} m/px")
+    base2 = np.clip(0.45 + 0.02 * rng.standard_normal((400, 800, 3)), 0, 1).astype(np.float32)
+    mk = (base2 * 255).astype(np.uint8).copy()
+    YEL, RED, BLK, ORA, GRN = (255, 240, 0), (255, 0, 0), (0, 0, 0), (255, 140, 0), (0, 230, 0)
+    for x in (100, 200, 300):
+        cv2.rectangle(mk, (x, 60), (x + 40, 95), YEL, 2)              # 3 foundations
+    for x in (450, 520):
+        cv2.circle(mk, (x, 80), 12, RED, 2)                           # 2 pits
+    cv2.ellipse(mk, (650, 80), (40, 25), 0, 0, 360, BLK, 2)           # a bush
+    cv2.line(mk, (700, 150), (720, 170), RED, 2)
+    cv2.line(mk, (720, 150), (700, 170), RED, 2)                      # an animal (X)
+    cv2.polylines(mk, [np.array([[10, 200], [790, 210]], np.int32)], False, ORA, 2)    # road
+    cv2.polylines(mk, [np.array([[10, 230], [790, 240]], np.int32)], False, ORA, 2)
+    zz = np.array([[20 + 30 * i, 203 if i % 2 else 233] for i in range(25)], np.int32)
+    cv2.polylines(mk, [zz], False, ORA, 2)                            # zigzag inside the road
+    cv2.polylines(mk, [np.array([[10, 300], [790, 300]], np.int32)], False, GRN, 2)    # rampart
+    cv2.polylines(mk, [np.array([[10, 340], [790, 340]], np.int32)], False, GRN, 2)
+    g2 = GT.extract(base2, mk.astype(np.float32) / 255)
+    kinds = [o["kind"] for o in g2["objects"]]
+    la = sorted(x["kind"] for x in g2["lookalikes"])
+    ok &= check("Colour marks: yellow=foundation, red=pit, black=bush, red X=animal, orange=road, green=rampart",
+                kinds.count("foundation") == 3 and kinds.count("pit") == 2 and la == ["animal", "vegetation"]
+                and g2["roads"][220, 400] and g2["ramparts"][320, 400],
+                f"{kinds.count('foundation')} foundations, {kinds.count('pit')} pits, look-alikes {la}, "
+                f"road {'yes' if g2['roads'][220, 400] else 'no'}, rampart {'yes' if g2['ramparts'][320, 400] else 'no'}")
+
     print("\nALL PASSED" if ok else "\nSOME TESTS FAILED")
     print("outputs in", TMP)
     return 0 if ok else 1

@@ -365,7 +365,49 @@ def plausible_sun(az, lat):
     return az, False
 
 
-def analyse_image(rgb, valid, mpp, sun_az=None, sun_el=30.0, lat=None, north_up_deg=0.0):
+def _fine_texture(rgb, valid):
+    """Small-scale brightness texture (std of the Laplacian of L after a 3 px blur). Ploughed or
+    harrowed fields are very smooth (< 0.13 on 0.3 m/px screenshots); grass, scrub and village
+    sites are rougher."""
+    L = cv2.cvtColor(np.clip(rgb, 0, 1).astype(np.float32), cv2.COLOR_RGB2Lab)[..., 0]
+    lap = cv2.Laplacian(cv2.GaussianBlur(L, (0, 0), 3), cv2.CV_32F)
+    return float(np.std(lap[valid])) if valid.any() else 1.0
+
+
+def _merge_learned(cands, learned_c, mpp):
+    """The learned detector re-ranks what the hand-made detectors found: a candidate the model
+    also picked keeps the higher score and says so; one the model did not pick is demoted (the
+    model was right more often on the marked examples); model-only spots are added."""
+    used = set()
+    for c in cands:
+        if c["type"] == "linear" or c.get("kind") in ("crop_mark", "soil_mark", "clearing", "canopy_anomaly"):
+            continue
+        best, bj = None, None
+        for j, l in enumerate(learned_c):
+            d = math.hypot(c["row"] - l["row"], c["col"] - l["col"])
+            if d <= max(2.0 * l["radius_px"], 6.0 / mpp ** 0.5) and (best is None or d < best):
+                best, bj = d, j
+        if bj is None:
+            c["learned_p"] = 0.0
+            if c.get("depth_to_noise", 0) < 9:        # a very clear hollow in the relief keeps its score
+                c["confidence"] = round(c["confidence"] * 0.55, 2)
+        else:
+            used.add(bj)
+            lp = learned_c[bj]["learned_p"]
+            c["learned_p"] = lp
+            c["confidence"] = round(min(1.0, 0.2 * c["confidence"] + 0.9 * lp), 2)
+            c["note"] = c.get("note", "") + f"; also picked by the learned model ({lp:.2f})"
+    for j, l in enumerate(learned_c):
+        l["diameter_m"] = round(2 * l["radius_px"] * mpp, 1)
+        if j not in used:
+            # a spot only the model saw goes in at half its score: tested on a second marked pack
+            # (model trained on the other one), full weight pushed real field patches down the list
+            l["confidence"] = round(0.5 * l["learned_p"], 2)
+            cands.append(l)
+    return cands
+
+
+def analyse_image(rgb, valid, mpp, sun_az=None, sun_el=30.0, lat=None, north_up_deg=0.0, model="default"):
     cls = classify(rgb, valid, mpp)
     s = shading(rgb, cls, mpp)
     est = estimate_sun(s, cls["open"], mpp)
@@ -426,6 +468,27 @@ def analyse_image(rgb, valid, mpp, sun_az=None, sun_el=30.0, lat=None, north_up_
             if n >= 3:
                 c["group_size"] = int(n + 1)
                 c["confidence"] = round(min(1.0, c["confidence"] + 0.04 * min(n, 5)), 2)
+    if model is not None:
+        from . import learned
+        mdl = learned.load_model() if model == "default" else model
+        if mdl is not None:
+            lc = learned.detect(rgb, valid, None if az_used is None else az_used, lat, model=mdl, min_p=0.2)
+            lc = [c for c in lc if not cls["forest"][int(c["row"]), int(c["col"])]]
+            top = max([c["learned_p"] for c in lc] or [0.0])
+            smooth = _fine_texture(rgb, valid)
+            # if nothing in the picture looks like the marked examples, the model probably does not
+            # know this kind of picture (other region, zoom, sensor): then it is not allowed to re-rank.
+            # Very smooth ground = a ploughed field: the model was trained on grass/scrub village sites
+            # and made field results worse in testing - there the rows of patches are what counts.
+            used_model = top >= 0.4 and smooth >= 0.13
+            if used_model:
+                cands = _merge_learned(cands, lc, mpp)
+            info["learned_model"] = {"spots": len(lc), "best_score": round(top, 2), "fine_texture": round(smooth, 3),
+                                     "used": used_model, "validation": mdl.get("validation"),
+                                     "note": None if used_model else
+                                     ("smooth bare field - model not used (rows of patches matter here)"
+                                      if smooth < 0.13 else
+                                      "nothing here resembles the marked training examples - model not used")}
     extra = field_marks(rgb, cls, mpp) + forest_marks(rgb, cls, mpp)
     for c in extra:
         r_, c_ = int(np.clip(c["row"], 0, valid.shape[0] - 1)), int(np.clip(c["col"], 0, valid.shape[1] - 1))

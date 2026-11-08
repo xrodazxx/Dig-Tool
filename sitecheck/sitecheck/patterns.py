@@ -106,8 +106,13 @@ def find_blobs(rgb, region, mpp, min_m=4.0, max_m=25.0, z_min=1.2, max_n=200, re
 
 # --------------------------------------------------------------------------- rows
 
-def _rows_from_points(P, S, D, min_n=4, min_gap=10.0, max_gap=60.0):
-    """P: (n,2) metres, S: strengths, D: diameters. Returns candidate rows sorted by score."""
+def _rows_from_points(P, S, D, min_n=4, min_gap=10.0, max_gap=75.0):
+    """P: (n,2) metres, S: strengths, D: diameters. Returns candidate rows sorted by score.
+
+    A row = at least `min_n` similar patches whose centres lie on one line, each next one
+    10-60 m on (not overlapping the previous one), without a hole of more than ~2.6x the usual
+    gap. Real village houses are NOT evenly spaced (yards differ), so even spacing is a bonus
+    in the score, not a requirement; the chance test decides what is unusual."""
     n = len(P)
     if n < min_n:
         return []
@@ -121,48 +126,52 @@ def _rows_from_points(P, S, D, min_n=4, min_gap=10.0, max_gap=60.0):
             u = (P[j] - P[i]) / d[j]
             rel = P - P[i]
             t = rel @ u
-            perp = np.abs(rel[:, 0] * u[1] - rel[:, 1] * u[0])
-            s = d[j]
-            on = np.where(perp <= max(4.0, 0.15 * s))[0]
+            perp = rel[:, 0] * u[1] - rel[:, 1] * u[0]
+            tol = max(4.0, 0.45 * float(np.mean(D[[i, j]])))
+            on = np.where(np.abs(perp) <= tol)[0]
             if len(on) < min_n:
                 continue
-            # walk both directions in steps of s, one missing house allowed per gap
-            hits = [i]
-            for direction in (1, -1):
-                pos, misses = 0.0, 0
-                while True:
-                    pos += direction * s
-                    cand = on[np.abs(t[on] - pos) <= 0.22 * s]
-                    if len(cand):
-                        k = cand[np.argmin(np.abs(t[cand] - pos))]
-                        hits.append(int(k))
-                        pos = t[k]
-                        misses = 0
-                    else:
-                        misses += 1
-                        if misses > 1:
-                            break
-            hits = sorted(set(hits), key=lambda k: t[k])
-            if len(hits) < min_n:
+            on = on[np.argsort(t[on])]
+            # keep patches that do not overlap the previous one (one per house)
+            chain = [on[0]]
+            for k in on[1:]:
+                if t[k] - t[chain[-1]] >= max(0.6 * 0.5 * (D[k] + D[chain[-1]]), 0.35 * min_gap):
+                    chain.append(k)
+                elif S[k] > S[chain[-1]]:
+                    chain[-1] = k
+            chain = np.array(chain)
+            if len(chain) < min_n:
                 continue
-            key = tuple(hits)
-            if key in seen:
-                continue
-            seen.add(key)
-            gaps = np.diff(t[hits])
-            # gaps of ~2s are one missing house: normalise them
-            unit = np.median(gaps[gaps < 1.5 * np.median(gaps)]) if len(gaps) else s
-            steps = np.maximum(1, np.round(gaps / unit))
-            g1 = gaps / steps
-            cv = float(np.std(g1) / max(np.mean(g1), 1e-6))
-            if cv > 0.3:
-                continue
-            size_cv = float(np.std(D[hits]) / max(np.mean(D[hits]), 1e-6))
-            straight = float(np.std(perp[hits]))
-            score = len(hits) * (1 - cv) * (1 - min(size_cv, 0.8) * 0.5) * float(np.mean(np.minimum(S[hits], 4)) / 2)
-            rows.append({"members": hits, "spacing_m": float(np.mean(g1)), "spacing_cv": cv, "missing": int(steps.sum() - len(gaps)),
-                         "size_cv": size_cv, "offset_sd_m": straight, "score": score,
-                         "dir": u, "t0": float(t[hits[0]]), "t1": float(t[hits[-1]]), "origin": P[i]})
+            gaps = np.diff(t[chain])
+            # split at holes: > max_gap, or > 2.6x the median gap
+            med = float(np.median(gaps))
+            cut = np.where((gaps > max_gap * 1.5) | (gaps > 2.6 * max(med, min_gap)))[0]
+            pieces = np.split(chain, cut + 1)
+            for hits in pieces:
+                if len(hits) < min_n or i not in hits and j not in hits:
+                    continue
+                key = tuple(sorted(int(h) for h in hits))
+                if key in seen:
+                    continue
+                seen.add(key)
+                g = np.diff(t[hits])
+                unit = np.median(g[g < 1.5 * np.median(g)]) if len(g) else d[j]
+                steps = np.maximum(1, np.round(g / unit))
+                g1 = g / steps
+                cv = float(np.std(g1) / max(np.mean(g1), 1e-6))
+                cv_raw = float(np.std(g) / max(np.mean(g), 1e-6))
+                if cv_raw > 0.75:
+                    continue
+                size_cv = float(np.std(D[hits]) / max(np.mean(D[hits]), 1e-6))
+                straight = float(np.std(perp[hits]))
+                straight_f = 1.0 - min(0.5, straight / max(tol, 1e-6) * 0.5)
+                regular_f = 1.0 - 0.6 * min(cv, 1.0)
+                score = (len(hits) * regular_f * straight_f * (1 - min(size_cv, 0.8) * 0.5)
+                         * float(np.mean(np.minimum(S[hits], 4)) / 2))
+                rows.append({"members": [int(h) for h in hits], "spacing_m": float(np.mean(g)),
+                             "spacing_cv": round(cv_raw, 2), "missing": int(steps.sum() - len(g)),
+                             "size_cv": size_cv, "offset_sd_m": straight, "score": score,
+                             "dir": u, "t0": float(t[hits[0]]), "t1": float(t[hits[-1]]), "origin": P[i]})
     rows.sort(key=lambda r: -r["score"])
     # drop rows that mostly repeat a better one
     out = []
@@ -197,6 +206,30 @@ def _is_track(lum, a_rc, b_rc, mpp):
     return same > 0.78 and abs(med) > 0.5 * (1.4826 * np.median(np.abs(d - med)) + 1e-6)
 
 
+def _is_edge(lum, a_rc, b_rc, mpp):
+    """True if the row runs along a boundary: one side of it is lighter than the other almost
+    all the way (field edge, gully side, boundary of a soil band, edge of a plough strip).
+    Spots strung along such a boundary are a property of the boundary, not houses."""
+    (r1, c1), (r2, c2) = a_rc, b_rc
+    n = int(max(abs(r2 - r1), abs(c2 - c1)))
+    if n < 10:
+        return False
+    rr = np.linspace(r1, r2, n)
+    cc = np.linspace(c1, c2, n)
+    L = math.hypot(r2 - r1, c2 - c1)
+    nr, nc = -(c2 - c1) / L, (r2 - r1) / L
+    g = ndi.gaussian_filter(lum, max(1.0, 1.5 / mpp))
+    samp = lambda r, c: ndi.map_coordinates(g, [np.clip(r, 0, g.shape[0] - 1), np.clip(c, 0, g.shape[1] - 1)], order=1)
+    for off_m in (4.0, 8.0):
+        off = off_m / mpp
+        d = samp(rr + off * nr, cc + off * nc) - samp(rr - off * nr, cc - off * nc)
+        med = np.median(d)
+        same = float(np.mean(np.sign(d) == np.sign(med)))
+        if same > 0.85 and abs(med) > 0.8 * (1.4826 * np.median(np.abs(d - med)) + 1e-6):
+            return True
+    return False
+
+
 def tillage_bearing(lum, region, mpp):
     """Dominant direction of fine stripes (furrows, tramlines) in degrees 0-180 (bearing),
     and how strong it is (0..1). From the structure tensor of the image."""
@@ -216,20 +249,33 @@ def tillage_bearing(lum, region, mpp):
     return bearing, coher
 
 
-def _is_band(maps, kinds, a_rc, b_rc, mpp):
+def _is_band(maps, kinds, a_rc, b_rc, mpp, members_rc=None):
     """True if the anomaly is continuous along the row (a band: slope break, field margin,
-    wet strip) rather than separate patches with ordinary ground between them."""
+    wet strip, the road itself) rather than separate patches with ordinary ground between them.
+    With the members known: a band has no dip between neighbouring patches."""
+    ks = [k for k in kinds if k in maps]
+    if not ks:
+        return False
+    zmap = np.max([ndi.gaussian_filter(maps[k], 1.0 / mpp) for k in ks], axis=0)
+    H, W = zmap.shape
+    at = lambda r, c: float(zmap[int(np.clip(r, 0, H - 1)), int(np.clip(c, 0, W - 1))])
+    if members_rc is not None and len(members_rc) >= 3:
+        M = np.array(members_rc, float)
+        dips = 0
+        for a, b in zip(M[:-1], M[1:]):
+            lo = min(at(*a), at(*b))
+            # lowest point on the way from one patch to the next (middle 60 %)
+            ts = np.linspace(0.2, 0.8, 9)
+            mid = min(at(*(a + t_ * (b - a))) for t_ in ts)
+            if mid < 0.55 * lo or mid < 0.5:
+                dips += 1
+        return dips < 0.5 * (len(M) - 1)
     (r1, c1), (r2, c2) = a_rc, b_rc
     n = int(max(abs(r2 - r1), abs(c2 - c1)))
     if n < 10:
         return False
     rr, cc = np.linspace(r1, r2, n), np.linspace(c1, c2, n)
-    ks = [k for k in kinds if k in maps]
-    if not ks:
-        return False
-    z = np.max([ndi.map_coordinates(ndi.gaussian_filter(maps[k], 1.0 / mpp),
-                                    [np.clip(rr, 0, maps[k].shape[0] - 1), np.clip(cc, 0, maps[k].shape[1] - 1)],
-                                    order=1) for k in ks], axis=0)
+    z = np.array([at(r, c) for r, c in zip(rr, cc)])
     return float(np.mean(z > 0.8)) > 0.65
 
 
@@ -255,25 +301,53 @@ def find_rows(blobs, region, mpp, n_random=80, seed=0, max_rows=6, lum=None, map
         rows = _rows_from_points(P, S, D)[:max_rows]
         if not rows:
             continue
-        # chance check: the same patches (strengths, sizes) scattered at random in the same area
-        best_random = []
-        for _ in range(n_random):
-            k = rng.integers(0, len(rr), len(P))
-            Pr = np.column_stack([cc[k] * mpp, -rr[k] * mpp])
-            rr_rows = _rows_from_points(Pr, rng.permutation(S), rng.permutation(D))
-            best_random.append(rr_rows[0]["score"] if rr_rows else 0.0)
-        best_random = np.array(best_random)
+        # chance check, two ways; the larger chance counts:
+        #  (a) the same patches scattered at random over the area
+        #  (b) each patch moved up to ~25 m from where it is: keeps the patchiness of the soil
+        #      (clusters, bands of lighter ground) but breaks lines that are only "almost" there.
+        #      Patchy soil makes lines more often than (a) assumes; (b) is the stricter test.
+        best_a, best_b = [], []
+        inside = er
+        Hh, Ww = inside.shape
+
+        def trials(n):
+            for _ in range(n):
+                k = rng.integers(0, len(rr), len(P))
+                Pr = np.column_stack([cc[k] * mpp, -rr[k] * mpp])
+                rr_rows = _rows_from_points(Pr, rng.permutation(S), rng.permutation(D))
+                best_a.append(rr_rows[0]["score"] if rr_rows else 0.0)
+                ang = rng.uniform(0, 2 * math.pi, len(P))
+                rad = 25.0 * np.sqrt(rng.uniform(0.15, 1.0, len(P)))
+                Pj = P + np.column_stack([np.cos(ang), np.sin(ang)]) * rad[:, None]
+                rj, cj = (-Pj[:, 1] / mpp).astype(int), (Pj[:, 0] / mpp).astype(int)
+                bad = ~((rj >= 0) & (rj < Hh) & (cj >= 0) & (cj < Ww))
+                bad[~bad] = ~inside[rj[~bad], cj[~bad]]
+                Pj[bad] = P[bad] - (Pj[bad] - P[bad])                         # mirror back
+                rj_rows = _rows_from_points(Pj, S, D)
+                best_b.append(rj_rows[0]["score"] if rj_rows else 0.0)
+
+        trials(n_random)
+        # the best row is beaten (almost) never: more trials so a small chance can be told apart
+        # from "just under the floor" (80 trials cannot show anything below ~1 %)
+        top = rows[0]["score"]
+        if max(sum(x >= top for x in best_a), sum(x >= top for x in best_b)) <= 2:
+            trials(3 * n_random)
+        n_random_used = len(best_a)
+        best_a, best_b = np.array(best_a), np.array(best_b)
         for r in rows:
-            chance = float((np.sum(best_random >= r["score"]) + 1) / (n_random + 1))
+            chance = float(max(np.sum(best_a >= r["score"]), np.sum(best_b >= r["score"])) + 1) / (n_random_used + 1)
             u = r["dir"]
             a = r["origin"] + u * r["t0"]
             b = r["origin"] + u * r["t1"]
             to_rc = lambda p: [float(-p[1] / mpp), float(p[0] / mpp)]
+            if lum is not None and _is_edge(lum, to_rc(a), to_rc(b), mpp):
+                continue          # strung along a boundary (field edge, gully, soil band edge)
             if fam != "hollow" and lum is not None and _is_track(lum, to_rc(a), to_rc(b), mpp):
                 continue          # patches strung along a tramline / track
-            if maps and _is_band(maps, kinds, to_rc(a), to_rc(b), mpp):
-                continue          # one continuous band, not separate patches
             members = [fb[k] for k in r["members"]]
+            if maps and _is_band(maps, kinds, to_rc(a), to_rc(b), mpp,
+                                 [[m["row"], m["col"]] for m in members]):
+                continue          # one continuous band, not separate patches
             ang = math.degrees(math.atan2(u[0], u[1])) % 180       # bearing of the row
             out.append({
                 "type": "row", "kind": "regular_row", "patch_family": fam,
@@ -314,6 +388,111 @@ def find_rows(blobs, region, mpp, n_random=80, seed=0, max_rows=6, lum=None, map
             a_["confidence"] = round(min(0.95, a_["confidence"] + 0.1), 2)
             a_["note"] += f" Parallel to {len(par)} other row(s)."
     return out
+
+
+# --------------------------------------------------------------------------- the other side of the street
+
+def _any_zmap(maps, region, mpp):
+    z = np.max([ndi.gaussian_filter(m, max(1.0, 1.5 / mpp)) for m in maps.values()], axis=0)
+    z[~region] = 0
+    return z
+
+
+def _best_parallel(zmax, region, c, u, s, t0, t1, mpp, offsets, z_min, z=None):
+    """Best line parallel to (c, u) at the given perpendicular offsets, any phase along it,
+    sampled every s over the row's extent (+1 step each end). zmax = window-max of z."""
+    nrm = np.array([-u[1], u[0]])
+    ks = np.arange(-1, int(round((t1 - t0) / s)) + 2)
+    phases = np.linspace(0, s, 8, endpoint=False)
+    best, best_key = (0, None), (0, -1e9)
+    H, W = zmax.shape
+    for d in offsets:
+        for ph in phases:
+            tt = t0 + ph + ks * s
+            P = c[None, :] + np.outer(tt, u) + d * nrm[None, :]
+            r = np.round(P[:, 0]).astype(int)
+            q = np.round(P[:, 1]).astype(int)
+            ok = (r >= 0) & (r < H) & (q >= 0) & (q < W)
+            if ok.sum() < 3:
+                continue
+            ok[ok] = region[r[ok], q[ok]]
+            if ok.sum() < 3:
+                continue
+            hit = zmax[r[ok], q[ok]] >= z_min
+            hits = int(hit.sum())
+            # ties: the line through the patch centres, not along their edge
+            key = (hits, float(np.minimum(z[r[ok], q[ok]], 8).sum()) if z is not None else 0.0)
+            if key > best_key:
+                best_key = key
+                best = (hits, (d, ph, P[ok], hit))
+    return best
+
+
+def parallel_row(row, maps, region, mpp, n_random=150, seed=3, z_min=1.0):
+    """Houses usually stood on both sides of a street. Given a found row, look for a second
+    row of patches parallel to it at the same spacing, 20-150 m away on either side (any
+    shift along it). Chance = how often the same search around a random line of the same
+    length, spacing and direction finds as many patches."""
+    if not maps:
+        return None
+    M = np.array(row["members_px"], float)
+    if len(M) < 3:
+        return None
+    c = M.mean(0)
+    _, _, vt = np.linalg.svd(M - c)
+    u = vt[0] / np.linalg.norm(vt[0])
+    t = (M - c) @ u
+    s = row["spacing_m"] / mpp
+    t0, t1 = float(t.min()), float(t.max())
+    # same kind of patch as the row (houses of one village leave similar marks)
+    fam = row.get("patch_family")
+    sub = {k: maps[k] for k in FAMILIES.get(fam, ()) if k in maps} or maps
+    z = _any_zmap(sub, region, mpp)
+    win = max(3, int(0.22 * s))
+    zmax = ndi.maximum_filter(z, size=win)
+    # a hit must stand out among the window maxima of this field, not just be above average
+    z_min = max(z_min, float(np.percentile(zmax[region], 85))) if region.any() else z_min
+    step = max(2.0, 0.08 * s)
+    d_min = max(20.0, 1.5 * row.get("mean_patch_m", 8.0))     # clear of the row's own patches
+    offs = np.arange(d_min / mpp, 150 / mpp, step)
+    offsets = np.concatenate([offs, -offs])
+    n_obs, info = _best_parallel(zmax, region, c, u, s, t0, t1, mpp, offsets, z_min, z)
+    if info is None or n_obs < 3:
+        return None
+    rng = np.random.default_rng(seed)
+    er = ndi.binary_erosion(region, iterations=max(1, int(10 / mpp)))
+    rr, cc = np.nonzero(er)
+    if len(rr) == 0:
+        return None
+    rand = []
+    for _ in range(n_random):
+        k = rng.integers(len(rr))
+        a = rng.uniform(0, math.pi)
+        ur = np.array([math.sin(a), math.cos(a)])
+        cr = np.array([rr[k], cc[k]], float)
+        rand.append(_best_parallel(zmax, region, cr, ur, s, t0, t1, mpp, offsets, z_min)[0])
+    rand = np.array(rand)
+    chance = float((np.sum(rand >= n_obs) + 1) / (n_random + 1))
+    d, ph, P, hit = info
+    members = [list(map(float, p)) for p, h in zip(P, hit) if h]
+    gaps = [list(map(float, p)) for p, h in zip(P, hit) if not h]
+    nrm = np.array([-u[1], u[0]])
+    street = [list(map(float, c + t0 * u + 0.5 * d * nrm)), list(map(float, c + t1 * u + 0.5 * d * nrm))]
+    return {"type": "row", "kind": "parallel_row", "patch_family": fam if sub is not maps else "any",
+            "row": float(np.mean([m[0] for m in members])), "col": float(np.mean([m[1] for m in members])),
+            "members_px": members, "expected_but_missing_px": gaps, "n_patches": len(members),
+            "spacing_m": row["spacing_m"], "bearing_deg": row["bearing_deg"],
+            "offset_m": round(abs(d) * mpp, 1), "street_px": street,
+            "ends_px": [list(map(float, P[0])), list(map(float, P[-1]))],
+            "length_m": round(float(np.hypot(*(P[-1] - P[0]))) * mpp, 1),
+            "chance": round(chance, 3), "random_mean_hits": round(float(rand.mean()), 2),
+            "confidence": round(float(np.clip(1 - chance * 4, 0.05, 0.95)), 2),
+            "source_signal": "second row parallel to a found row",
+            "note": (f"{len(members)} patches on a line parallel to the row, {abs(d) * mpp:.0f} m away, at the same "
+                     f"~{row['spacing_m']:.0f} m spacing - like houses on the other side of a street"
+                     + (f"; {len(gaps)} expected place(s) without a patch" if gaps else "")
+                     + f". The same search around random lines finds this many in {chance * 100:.0f}% of "
+                       f"{n_random} trials (on average {rand.mean():.1f}).")}
 
 
 # --------------------------------------------------------------------------- guided

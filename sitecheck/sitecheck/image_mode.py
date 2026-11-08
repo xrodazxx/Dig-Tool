@@ -100,20 +100,38 @@ def run_images(paths, out_dir, lat=None, lon=None, mpp=None, known=None, spot_px
             continue
         n_tried += 1
         reg = (r["classes"]["field"] | r["classes"]["open"]) & ~r["classes"]["snow"]
-        bl, maps_k = pt.find_blobs(rgb, reg, mpp, return_maps=True)
+        bl, maps_k = pt.find_blobs(rgb, reg, mpp, max_m=35.0, return_maps=True)   # field houses: up to ~30 m patches
         for c in r["candidates"]:
             if c["type"] == "pit":
                 bl.append({"row": c.get("img_row", c["row"]), "col": c.get("img_col", c["col"]),
-                           "diameter_m": c.get("diameter_m", 4.0), "kind": "hollow",
+                           "diameter_m": c.get("diameter_m") or 4.0, "kind": "hollow",
                            "strength": round(min(6.0, c.get("depth_to_noise", 3.0)) / 2, 2)})
         n_patch += len(bl)
         rk = pt.find_rows(bl, reg, mpp, lum=_ndi.gaussian_filter(im.luminance(rgb), 1.0), maps=maps_k)
+        # the other side of the street: a second row parallel to a found one, same spacing
+        base = [x for x in rk if x["chance"] < 0.3 and not x.get("along_cultivation")][:3]
+        for x in base:
+            pr = pt.parallel_row(x, maps_k, reg, mpp)
+            if pr is None:
+                continue
+            pr["chance_search"] = pr["chance"]
+            pr["chance"] = round(min(1.0, pr["chance"] * len(base)), 3)    # several rows were tried
+            if pr["chance"] < 0.10:
+                pr["mean_patch_m"] = x["mean_patch_m"]
+                pr["parallel_to_patch_family"] = x["patch_family"]
+                x["street_px"] = pr["street_px"]
+                x["parallel_rows"] = max(2, x.get("parallel_rows", 1))
+                x["note"] += (f" A second row of the same kind runs parallel {pr['offset_m']:.0f} m away "
+                              "- two rows with a strip between them is how a village street looks.")
+                pr["note"] += " The strip between the two rows is where the street would have run."
+                rk.append(pr)
         if k > 0:            # to reference-image pixels
             Ainv = np.linalg.inv(np.vstack([wmat, [0, 0, 1]]))
             tr = lambda rc: [float((Ainv @ [rc[1], rc[0], 1])[1]), float((Ainv @ [rc[1], rc[0], 1])[0])]
             for x in rk:
-                x["members_px"] = [tr(m) for m in x["members_px"]]
-                x["ends_px"] = [tr(e) for e in x["ends_px"]]
+                for key_ in ("members_px", "ends_px", "street_px", "expected_but_missing_px"):
+                    if key_ in x:
+                        x[key_] = [tr(m) for m in x[key_]]
                 x["row"], x["col"] = tr([x["row"], x["col"]])
         for x in rk:
             x["seen_in_images"] = [k + 1]
@@ -139,18 +157,43 @@ def run_images(paths, out_dir, lat=None, lon=None, mpp=None, known=None, spot_px
                 x["chance_single"] = x["chance"]
                 x["chance"] = round(min(1.0, x["chance"] * max(1, n_tried)), 3)   # more pictures = more tries
             # four kinds of patch were searched: correct for that too (honest multiple-testing)
-            n_fam = len(pt.FAMILIES)
+            # (a parallel row is a follow-up search on an already found row, not another family)
+            n_fam = 1 if x.get("kind") == "parallel_row" else len(pt.FAMILIES)
             x["chance"] = round(min(1.0, x["chance"] * n_fam), 3)
             x["presumption"] = ("presumption" if x["chance"] < 0.10 else
-                                "weak presumption" if x["chance"] <= 0.30 else "none")
+                                "weak presumption" if x["chance"] <= 0.20 else "none")
             x["confidence"] = round(float(np.clip(1 - x["chance"] * 4, 0.05, 0.95)) *
                                     (0.5 if x.get("along_cultivation") else 1.0), 2)
             rows.append(x)
-    rows = [x for x in rows if x["chance"] <= 0.30]
+    # (tested on 15 marked empty fields: with a 30% cut 4 of them got a "weak presumption", with 20% 2)
+    rows = [x for x in rows if x["chance"] <= 0.20]
     for x in rows:
         x.pop("_twins", None)
         x["signals"] = ["regular_row"]
     rows.sort(key=lambda x: x["chance"])
+    # the same row found twice (another family / picture pairing): keep the stronger one
+    kept = []
+    for x in rows:
+        Mx = np.array(x["members_px"])
+        dup = False
+        for y in kept:
+            My = np.array(y["members_px"])
+            near = np.hypot(Mx[:, None, 0] - My[None, :, 0], Mx[:, None, 1] - My[None, :, 1]).min(1) * mpp
+            if (near < 0.5 * min(x["spacing_m"], y["spacing_m"])).mean() >= 0.6:
+                dup = True
+                break
+            # or: lies on the same line (e.g. the same houses at double spacing)
+            db = abs(x["bearing_deg"] - y["bearing_deg"]) % 180
+            if min(db, 180 - db) < 10 and len(My) >= 2:
+                a_, b_ = My[0], My[-1]
+                u_ = (b_ - a_) / max(np.hypot(*(b_ - a_)), 1e-6)
+                perp = np.abs((Mx[:, 0] - a_[0]) * u_[1] - (Mx[:, 1] - a_[1]) * u_[0]) * mpp
+                if np.median(perp) < max(8.0, 0.3 * min(x["spacing_m"], y["spacing_m"])):
+                    dup = True
+                    break
+        if not dup:
+            kept.append(x)
+    rows = kept
     pattern_info = {"patches_and_hollows_examined": n_patch, "pictures_searched": n_tried, "rows_found": len(rows)}
 
     fused = im.fuse([r if (k == 0 or warps[k] is not None) else {"candidates": []} for k, r in enumerate(results)], mpp)
@@ -202,6 +245,8 @@ def run_images(paths, out_dir, lat=None, lon=None, mpp=None, known=None, spot_px
     from .water import distance_band
     water["band"] = distance_band(water["distance_m"])
     spot = {"landform": None, "slope_deg": None}     # unknown without elevation data
+    for f in fused:                                  # the score weighs one-picture evidence lower
+        f["n_images"] = len(results)
     sc = score.compute(spot, water, fused, ctx, score.load_weights(weights_path))
 
     report = {
@@ -314,7 +359,8 @@ def _public_img(c):
     for k in ("kind", "signals", "seen_in_images", "source_signal", "contrast_z", "depth_to_noise", "unaligned",
               "area_m2", "cluster_size", "in_field", "parallel_rows", "group_size", "patch_family", "n_patches",
               "spacing_m", "spacing_variation", "missing_in_row", "bearing_deg", "mean_patch_m", "chance",
-              "members_px", "along_cultivation", "chance_single", "presumption"):
+              "members_px", "along_cultivation", "chance_single", "presumption", "street_px", "offset_m",
+              "expected_but_missing_px", "chance_search", "learned_p", "ends_px", "n_images"):
         if k in c:
             d[k] = c[k]
     return d
@@ -331,6 +377,9 @@ def _draw(ax, feats, to_xy=lambda r, c: (c, r), mpp=0.3, scale=1.0):
             pts = [to_xy(r_, c_) for r_, c_ in f["members_px"]]
             (x1, y1), (x2, y2) = to_xy(*f["ends_px"][0]), to_xy(*f["ends_px"][1])
             ax.plot([x1, x2], [y1, y2], color="#ff00ff", lw=2.2, ls="-" if not f.get("along_cultivation") else ":")
+            if f.get("street_px"):
+                (sx1, sy1), (sx2, sy2) = to_xy(*f["street_px"][0]), to_xy(*f["street_px"][1])
+                ax.plot([sx1, sx2], [sy1, sy2], color="#ffd400", lw=1.6, ls="--")
             for x_, y_ in pts:
                 ax.add_patch(plt.Circle((x_, y_), max(10, f["mean_patch_m"] / mpp / 2 * scale), fill=False,
                                         ec="#ff00ff", lw=1.8))

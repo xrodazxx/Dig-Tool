@@ -133,6 +133,10 @@ footer{grid-column:1/4;display:flex;gap:18px;align-items:center;padding:0 12px;b
         <div><label>Metres per pixel</label><input id="inMpp" placeholder="unknown → 0.3"></div>
       </div>
       <div class="row2" style="margin-top:6px">
+        <div><label>…or eye altitude, m (Google Earth)</label><input id="inAlt" placeholder="e.g. 450"></div>
+        <div><label>map window width, px</label><input id="inVw" placeholder="1920"></div>
+      </div>
+      <div class="row2" style="margin-top:6px">
         <div><label>Sun azimuth (opt.)</label><input id="inSun" placeholder="auto"></div>
         <div style="display:flex;align-items:flex-end"><button class="primary" id="btnRun" style="width:100%">Run analysis</button></div>
       </div>
@@ -236,6 +240,7 @@ async function reloadArea(fit){
   $("#areaSub").textContent = st.lat!=null ? `${st.lat.toFixed(5)}, ${st.lon.toFixed(5)}` : "no coordinates";
   $("#inCoords").value = st.coords_text || (st.lat!=null ? `${st.lat}, ${st.lon}` : "");
   $("#inMpp").value = st.mpp ?? ""; $("#inSun").value = st.sun_azimuth ?? "";
+  $("#inAlt").value = st.altitude ?? "";
   $("#btnPrompt").disabled = $("#btnReport").disabled = !d.report;
   buildLayers(); renderSide(); setJob(d.job);
   const img = $("#img"); img.onload = () => { if (fit) fitView(); draw(); };
@@ -368,6 +373,9 @@ function draw(){
     if (f.type==="row"){
       const [[r1,c1],[r2,c2]] = f.ends_px;
       h += `<line ${g} x1="${c1}" y1="${r1}" x2="${c2}" y2="${r2}" stroke="${col}" stroke-width="${(sel?4:2.5)*k}" ${f.along_cultivation?`stroke-dasharray="${8*k} ${5*k}"`:""}/>`;
+      if (f.street_px){ const [[s1,t1],[s2,t2]] = f.street_px;
+        h += `<line ${g} x1="${t1}" y1="${s1}" x2="${t2}" y2="${s2}" stroke="#ffd400" stroke-width="${2*k}" stroke-dasharray="${10*k} ${6*k}"/>`;
+        h += label((t1+t2)/2, (s1+s2)/2, "street?", "#ffd400", k, g); }
       const rad = Math.max(8*k, (f.mean_patch_m||8)/mpp/2);
       for (const [r,c] of f.members_px) h += `<circle ${g} cx="${c}" cy="${r}" r="${rad}" fill="none" stroke="${col}" stroke-width="${2*k}"/>`;
       for (const [r,c] of (f.expected_but_missing_px||[])) h += `<g ${g}><circle cx="${c}" cy="${r}" r="${rad}" fill="none" stroke="${col}" stroke-dasharray="${3*k} ${3*k}" stroke-width="${1.5*k}"/><text x="${c}" y="${r+4*k}" fill="${col}" font-size="${12*k}" text-anchor="middle">?</text></g>`;
@@ -521,6 +529,8 @@ $("#gSave").onclick = async () => {
 async function saveSettings(){
   const body = {coords_text:$("#inCoords").value.trim() || undefined,
     mpp: $("#inMpp").value.trim() ? +$("#inMpp").value : null,
+    altitude: $("#inAlt").value.trim() ? +$("#inAlt").value : null,
+    view_width: $("#inVw").value.trim() ? +$("#inVw").value : null,
     sun_azimuth: $("#inSun").value.trim() ? +$("#inSun").value : null};
   if (body.mpp!==null) body.known = null;
   await post(`/api/areas/${encodeURIComponent(S.area)}/settings`, body);

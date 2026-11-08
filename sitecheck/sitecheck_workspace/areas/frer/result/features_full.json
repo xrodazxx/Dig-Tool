@@ -1,0 +1,707 @@
+[
+ {
+  "type": "pit",
+  "row": 652.5596915800816,
+  "col": 834.655758786111,
+  "diameter_m": 6.8,
+  "depth_m": 0.27,
+  "volume_m3": 4.1,
+  "roundness": 0.54,
+  "confidence": 1.0,
+  "note": "hollow from shading - house/cellar pit, storage pit, crater, quarry pit or root throw",
+  "source_signal": "shading (photoclinometric relief)",
+  "depth_to_noise": 8.5,
+  "group_size": 4,
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "pit"
+  ],
+  "id": 1,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": 49.8,
+  "y_m": -82.8,
+  "distance_from_spot_m": 97,
+  "bearing_deg": 149
+ },
+ {
+  "type": "linear",
+  "relief": "sunken",
+  "row": 121.6183943089431,
+  "col": 145.5533536585366,
+  "length_m": 101.0,
+  "mean_width_m": 3.5,
+  "straightness": 0.87,
+  "orientation_deg": 166.0,
+  "ends_px": [
+   [
+    78.0,
+    319.0
+   ],
+   [
+    155.0,
+    5.0
+   ]
+  ],
+  "confidence": 0.95,
+  "note": "ditch / sunken road; curved - could be a natural gully or stream bed; from an image - could also be a modern track or field edge",
+  "source_signal": "shading (photoclinometric relief)",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "linear"
+  ],
+  "id": 2,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": -156.9,
+  "y_m": 76.5,
+  "distance_from_spot_m": 175,
+  "bearing_deg": 296
+ },
+ {
+  "type": "linear",
+  "relief": "raised",
+  "row": 154.10323334631866,
+  "col": 98.01363459291001,
+  "length_m": 64.0,
+  "mean_width_m": 3.6,
+  "straightness": 0.83,
+  "orientation_deg": 169.0,
+  "ends_px": [
+   [
+    139.0,
+    200.0
+   ],
+   [
+    170.0,
+    4.0
+   ]
+  ],
+  "confidence": 0.84,
+  "note": "bank / embankment / raised road; curved - could be a natural gully or stream bed; from an image - could also be a modern track or field edge",
+  "source_signal": "shading (photoclinometric relief)",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "linear"
+  ],
+  "id": 3,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": -171.1,
+  "y_m": 66.7,
+  "distance_from_spot_m": 184,
+  "bearing_deg": 291
+ },
+ {
+  "type": "mark",
+  "kind": "crop_green",
+  "row": 684.8495717344754,
+  "col": 845.0647751605995,
+  "diameter_m": 14.6,
+  "area_m2": 168,
+  "contrast_z": 6.6,
+  "in_field": false,
+  "confidence": 0.62,
+  "source_signal": "soil/crop colour",
+  "note": "greener / denser crop: deeper soil over a filled pit or ditch keeps moisture; the whole area is mottled - natural soil patches are likely",
+  "cluster_size": 7,
+  "area_mottling": 0.21,
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "crop_green",
+   "green_spot"
+  ],
+  "id": 4,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": 53.0,
+  "y_m": -92.5,
+  "distance_from_spot_m": 107,
+  "bearing_deg": 150
+ },
+ {
+  "type": "pit",
+  "row": 713.1189512909104,
+  "col": 754.5979515896983,
+  "diameter_m": 5.3,
+  "depth_m": 0.21,
+  "volume_m3": 2.4,
+  "roundness": 0.69,
+  "confidence": 0.6,
+  "note": "hollow from shading - house/cellar pit, storage pit, crater, quarry pit or root throw",
+  "source_signal": "shading (photoclinometric relief)",
+  "depth_to_noise": 6.6,
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "dark_spot",
+   "pit"
+  ],
+  "id": 5,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": 25.8,
+  "y_m": -101.0,
+  "distance_from_spot_m": 104,
+  "bearing_deg": 166
+ },
+ {
+  "type": "pit",
+  "row": 529.3308847496136,
+  "col": 348.3054276166914,
+  "diameter_m": 6.4,
+  "depth_m": 0.17,
+  "volume_m3": 2.7,
+  "roundness": 0.87,
+  "confidence": 0.59,
+  "note": "hollow from shading - house/cellar pit, storage pit, crater, quarry pit or root throw",
+  "source_signal": "shading (photoclinometric relief)",
+  "depth_to_noise": 5.3,
+  "group_size": 10,
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "light_spot",
+   "pit"
+  ],
+  "id": 6,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": -96.1,
+  "y_m": -45.8,
+  "distance_from_spot_m": 106,
+  "bearing_deg": 245
+ },
+ {
+  "type": "pit",
+  "row": 604.5999947851589,
+  "col": 320.0838715622537,
+  "diameter_m": 4.7,
+  "depth_m": 0.17,
+  "volume_m3": 1.5,
+  "roundness": 0.8,
+  "confidence": 0.59,
+  "note": "hollow from shading - house/cellar pit, storage pit, crater, quarry pit or root throw",
+  "source_signal": "shading (photoclinometric relief)",
+  "depth_to_noise": 5.3,
+  "group_size": 6,
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "pit"
+  ],
+  "id": 7,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": -104.5,
+  "y_m": -68.4,
+  "distance_from_spot_m": 125,
+  "bearing_deg": 237
+ },
+ {
+  "type": "pit",
+  "row": 86.20080270570156,
+  "col": 1159.7704827682853,
+  "diameter_m": 4.6,
+  "depth_m": 0.17,
+  "volume_m3": 1.4,
+  "roundness": 0.76,
+  "confidence": 0.51,
+  "note": "hollow from shading - house/cellar pit, storage pit, crater, quarry pit or root throw",
+  "source_signal": "shading (photoclinometric relief)",
+  "depth_to_noise": 5.3,
+  "group_size": 4,
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "pit"
+  ],
+  "id": 8,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": 147.4,
+  "y_m": 87.1,
+  "distance_from_spot_m": 171,
+  "bearing_deg": 59
+ },
+ {
+  "type": "pit",
+  "row": 105.79493307657586,
+  "col": 1152.4669380621679,
+  "diameter_m": 3.6,
+  "depth_m": 0.16,
+  "volume_m3": 0.9,
+  "roundness": 0.77,
+  "confidence": 0.5,
+  "note": "hollow from shading - house/cellar pit, storage pit, crater, quarry pit or root throw",
+  "source_signal": "shading (photoclinometric relief)",
+  "depth_to_noise": 5.0,
+  "group_size": 5,
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "pit"
+  ],
+  "id": 9,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": 145.2,
+  "y_m": 81.2,
+  "distance_from_spot_m": 166,
+  "bearing_deg": 61
+ },
+ {
+  "type": "mark",
+  "kind": "soil_light",
+  "row": 183.31626506024097,
+  "col": 1045.3074799196788,
+  "diameter_m": 21.4,
+  "area_m2": 359,
+  "contrast_z": 4.8,
+  "in_field": false,
+  "confidence": 0.47,
+  "source_signal": "soil/crop colour",
+  "note": "lighter soil patch: chalk, clay, brick or stone rubble brought up by the plough, or an eroded knoll; the whole area is mottled - natural soil patches are likely",
+  "cluster_size": 10,
+  "area_mottling": 0.21,
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "crop_parched",
+   "soil_light"
+  ],
+  "id": 10,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": 113.0,
+  "y_m": 58.0,
+  "distance_from_spot_m": 127,
+  "bearing_deg": 63
+ },
+ {
+  "type": "mark",
+  "kind": "soil_light",
+  "row": 229.6084315827081,
+  "col": 298.2475884244373,
+  "diameter_m": 17.9,
+  "area_m2": 252,
+  "contrast_z": 4.2,
+  "in_field": false,
+  "confidence": 0.42,
+  "source_signal": "soil/crop colour",
+  "note": "lighter soil patch: chalk, clay, brick or stone rubble brought up by the plough, or an eroded knoll; the whole area is mottled - natural soil patches are likely",
+  "cluster_size": 11,
+  "area_mottling": 0.21,
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "light_spot",
+   "soil_light"
+  ],
+  "id": 11,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": -111.1,
+  "y_m": 44.1,
+  "distance_from_spot_m": 120,
+  "bearing_deg": 292
+ },
+ {
+  "type": "mark",
+  "kind": "crop_parched",
+  "row": 219.34791154791154,
+  "col": 285.9965601965602,
+  "diameter_m": 15.3,
+  "area_m2": 183,
+  "contrast_z": 4.2,
+  "in_field": false,
+  "confidence": 0.42,
+  "source_signal": "soil/crop colour",
+  "note": "parched / yellower crop: shallow soil over a wall, road or rubble; the whole area is mottled - natural soil patches are likely",
+  "cluster_size": 10,
+  "area_mottling": 0.21,
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "crop_parched"
+  ],
+  "id": 12,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": -114.8,
+  "y_m": 47.1,
+  "distance_from_spot_m": 124,
+  "bearing_deg": 292
+ },
+ {
+  "type": "mark",
+  "kind": "soil_dark",
+  "row": 34.06766096762459,
+  "col": 1215.575118224809,
+  "diameter_m": 17.7,
+  "area_m2": 247,
+  "contrast_z": 4.1,
+  "in_field": false,
+  "confidence": 0.41,
+  "source_signal": "soil/crop colour",
+  "note": "darker soil patch: organic-rich / burnt cultural layer of a ploughed-out house or yard, or simply damp ground; the whole area is mottled - natural soil patches are likely",
+  "cluster_size": 6,
+  "area_mottling": 0.21,
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "soil_dark"
+  ],
+  "id": 13,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": 164.1,
+  "y_m": 102.7,
+  "distance_from_spot_m": 194,
+  "bearing_deg": 58
+ },
+ {
+  "type": "linear",
+  "kind": "tree_row",
+  "relief": "trees",
+  "row": 36.757123473541384,
+  "col": 68.5376526458616,
+  "length_m": 45,
+  "mean_width_m": 9.4,
+  "straightness": 0.86,
+  "orientation_deg": 145,
+  "ends_px": [
+   [
+    -5.55968694622743,
+    129.63855163502092
+   ],
+   [
+    79.0739338933102,
+    7.43675365670228
+   ]
+  ],
+  "confidence": 0.4,
+  "source_signal": "tree pattern",
+  "note": "straight row of trees: shelterbelt, field boundary or a planted village street / estate line",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "tree_row"
+  ],
+  "id": 14,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": -180.0,
+  "y_m": 101.9,
+  "distance_from_spot_m": 207,
+  "bearing_deg": 300
+ },
+ {
+  "type": "linear",
+  "kind": "tree_row",
+  "relief": "trees",
+  "row": 116.08406410644088,
+  "col": 162.80390081644995,
+  "length_m": 117,
+  "mean_width_m": 7.3,
+  "straightness": 0.96,
+  "orientation_deg": 166,
+  "ends_px": [
+   [
+    162.64970945700753,
+    -25.907620741990144
+   ],
+   [
+    69.51841875587422,
+    351.51542237489
+   ]
+  ],
+  "confidence": 0.4,
+  "source_signal": "tree pattern",
+  "note": "straight row of trees: shelterbelt, field boundary or a planted village street / estate line",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "tree_row"
+  ],
+  "id": 15,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": -151.7,
+  "y_m": 78.1,
+  "distance_from_spot_m": 171,
+  "bearing_deg": 297
+ },
+ {
+  "type": "mark",
+  "kind": "soil_dark",
+  "row": 686.6438016528925,
+  "col": 795.097520661157,
+  "diameter_m": 11.8,
+  "area_m2": 109,
+  "contrast_z": 3.8,
+  "in_field": false,
+  "confidence": 0.39,
+  "source_signal": "soil/crop colour",
+  "note": "darker soil patch: organic-rich / burnt cultural layer of a ploughed-out house or yard, or simply damp ground; the whole area is mottled - natural soil patches are likely",
+  "cluster_size": 8,
+  "area_mottling": 0.21,
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "dark_spot",
+   "soil_dark"
+  ],
+  "id": 16,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": 38.0,
+  "y_m": -93.0,
+  "distance_from_spot_m": 100,
+  "bearing_deg": 158
+ },
+ {
+  "type": "mark",
+  "kind": "soil_light",
+  "row": 259.44517184942714,
+  "col": 748.7294053464266,
+  "diameter_m": 14.5,
+  "area_m2": 165,
+  "contrast_z": 3.8,
+  "in_field": false,
+  "confidence": 0.39,
+  "source_signal": "soil/crop colour",
+  "note": "lighter soil patch: chalk, clay, brick or stone rubble brought up by the plough, or an eroded knoll; the whole area is mottled - natural soil patches are likely",
+  "cluster_size": 9,
+  "area_mottling": 0.21,
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "green_spot",
+   "light_spot",
+   "soil_light"
+  ],
+  "id": 17,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": 24.1,
+  "y_m": 35.1,
+  "distance_from_spot_m": 43,
+  "bearing_deg": 34
+ },
+ {
+  "type": "mark",
+  "kind": "soil_dark",
+  "row": 645.5535093815149,
+  "col": 437.0045170257123,
+  "diameter_m": 18.2,
+  "area_m2": 259,
+  "contrast_z": 3.7,
+  "in_field": false,
+  "confidence": 0.37,
+  "source_signal": "soil/crop colour",
+  "note": "darker soil patch: organic-rich / burnt cultural layer of a ploughed-out house or yard, or simply damp ground; the whole area is mottled - natural soil patches are likely",
+  "cluster_size": 9,
+  "area_mottling": 0.21,
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "soil_dark"
+  ],
+  "id": 18,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": -69.4,
+  "y_m": -80.7,
+  "distance_from_spot_m": 106,
+  "bearing_deg": 221
+ },
+ {
+  "type": "mark",
+  "kind": "soil_dark",
+  "row": 55.039451594851705,
+  "col": 998.7750419697818,
+  "diameter_m": 20.2,
+  "area_m2": 322,
+  "contrast_z": 3.5,
+  "in_field": false,
+  "confidence": 0.36,
+  "source_signal": "soil/crop colour",
+  "note": "darker soil patch: organic-rich / burnt cultural layer of a ploughed-out house or yard, or simply damp ground; the whole area is mottled - natural soil patches are likely",
+  "cluster_size": 9,
+  "area_mottling": 0.21,
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "soil_dark"
+  ],
+  "id": 19,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": 99.1,
+  "y_m": 96.4,
+  "distance_from_spot_m": 138,
+  "bearing_deg": 46
+ },
+ {
+  "type": "mark",
+  "kind": "soil_light",
+  "row": 140.049191848208,
+  "col": 739.9536191145468,
+  "diameter_m": 12.8,
+  "area_m2": 128,
+  "contrast_z": 3.5,
+  "in_field": false,
+  "confidence": 0.36,
+  "source_signal": "soil/crop colour",
+  "note": "lighter soil patch: chalk, clay, brick or stone rubble brought up by the plough, or an eroded knoll; the whole area is mottled - natural soil patches are likely",
+  "cluster_size": 8,
+  "area_mottling": 0.21,
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "light_spot",
+   "soil_light"
+  ],
+  "id": 20,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": 21.4,
+  "y_m": 70.9,
+  "distance_from_spot_m": 74,
+  "bearing_deg": 17
+ },
+ {
+  "type": "mark",
+  "kind": "soil_light",
+  "row": 309.1095779220779,
+  "col": 219.72808441558442,
+  "diameter_m": 16.8,
+  "area_m2": 222,
+  "contrast_z": 3.6,
+  "in_field": false,
+  "confidence": 0.36,
+  "source_signal": "soil/crop colour",
+  "note": "lighter soil patch: chalk, clay, brick or stone rubble brought up by the plough, or an eroded knoll; the whole area is mottled - natural soil patches are likely",
+  "cluster_size": 10,
+  "area_mottling": 0.21,
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "soil_light"
+  ],
+  "id": 21,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": -134.6,
+  "y_m": 20.2,
+  "distance_from_spot_m": 136,
+  "bearing_deg": 279
+ },
+ {
+  "type": "mark",
+  "kind": "crop_green",
+  "row": 659.9278477126189,
+  "col": 613.1225053730427,
+  "diameter_m": 19.3,
+  "area_m2": 293,
+  "contrast_z": 3.5,
+  "in_field": false,
+  "confidence": 0.36,
+  "source_signal": "soil/crop colour",
+  "note": "greener / denser crop: deeper soil over a filled pit or ditch keeps moisture; the whole area is mottled - natural soil patches are likely",
+  "cluster_size": 10,
+  "area_mottling": 0.21,
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "crop_green"
+  ],
+  "id": 22,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": -16.6,
+  "y_m": -85.0,
+  "distance_from_spot_m": 87,
+  "bearing_deg": 191
+ },
+ {
+  "type": "mark",
+  "kind": "crop_parched",
+  "row": 395.50642857142856,
+  "col": 313.10214285714284,
+  "diameter_m": 12.7,
+  "area_m2": 126,
+  "contrast_z": 3.4,
+  "in_field": false,
+  "confidence": 0.35,
+  "source_signal": "soil/crop colour",
+  "note": "parched / yellower crop: shallow soil over a wall, road or rubble; the whole area is mottled - natural soil patches are likely",
+  "cluster_size": 14,
+  "area_mottling": 0.21,
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "crop_parched",
+   "light_spot",
+   "soil_light"
+  ],
+  "id": 23,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": -106.6,
+  "y_m": -5.7,
+  "distance_from_spot_m": 107,
+  "bearing_deg": 267
+ }
+]

@@ -1,0 +1,20 @@
+{
+ "images": [
+  "file.webp"
+ ],
+ "lat": null,
+ "lon": null,
+ "mpp": null,
+ "known": null,
+ "masks": [
+  [
+   309.9,
+   414,
+   723.0999999999999,
+   436
+  ]
+ ],
+ "spot_px": null,
+ "sun_azimuth": null,
+ "coords_text": ""
+}

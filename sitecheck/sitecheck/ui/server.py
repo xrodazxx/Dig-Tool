@@ -176,6 +176,11 @@ def create_app(workspace: str) -> Flask:
                 s["lat"], s["lon"] = parse_coords(body["coords_text"])
             except ValueError as ex:
                 abort(400, str(ex))
+        if body.get("altitude"):                     # Google Earth eye altitude -> m/px
+            from ..scale import mpp_from_altitude
+            s["altitude"] = float(body["altitude"])
+            s["mpp"] = round(mpp_from_altitude(s["altitude"], int(body.get("view_width") or 1920)), 4)
+            s["known"] = None
         if s.get("known"):
             x1, y1, x2, y2, m = s["known"]
             s["mpp"] = round(float(m) / max(1e-6, ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5), 4)

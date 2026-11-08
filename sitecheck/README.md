@@ -15,6 +15,7 @@ of people: house pits, foundations, old roads, ditches. It combines that with wh
 pip install -e .                 # core (works for USA, England, Finland, point clouds)
 pip install -e ".[geo]"          # + rasterio/pyproj: ArcticDEM, any projection, faster downloads
 pip install -e ".[lidar]"        # + LAS/LAZ point clouds
+pip install -e ".[train]"        # + scikit-learn, only to retrain the spot model on your own marked areas
 ```
 
 ## Interface (recommended)
@@ -112,6 +113,10 @@ context only (slope, water, landform), and the report says pits are not visible.
 
 ### No elevation data at all: screenshots (`sitecheck image`)
 
+Give the scale if you can: `--altitude 450` (Google Earth eye altitude, looking straight down;
+add `--view-width` if your map window is not ~1920 px wide), or `--mpp`, or `--known` (two
+points and the distance between them). In the interface: "eye altitude" next to metres per pixel.
+
 This is for when the only thing available is a satellite view, for example most of Russia south of 60 N.
 Take one or more screenshots of the same view, ideally from **different seasons** (Google Earth has
 historical imagery). Early spring with low sun, no leaves and leftover snow is the most informative.
@@ -173,25 +178,138 @@ Known weak spots (from 13 test areas in the Samara and Orenburg regions):
 - Overgrown scrub: tree rows in scrub are only partly found.
 - Blurry, low-resolution screenshots give little.
 
-### Regular rows: "something may have stood here"
+### Rows of houses: "something may have stood here"
 
-A ploughed-out village rarely leaves clear single features, but its houses stood in a line
-at fairly even intervals. `sitecheck image` and `batch` look for this:
-1. Many weak, roughly round patches (4-25 m) of the same kind: dark/reddish soil, light soil,
-   green crop, or hollows from the shading relief.
-2. Lines through 4+ similar patches with near-constant spacing (one missing house allowed).
-3. Rejected: rows strung along a tramline or track, and rows that are really one continuous band
-   (slope break, field margin, wet strip). Rows parallel to the cultivation lines are flagged and halved.
-4. **Chance check**: the same patches are scattered at random over the same ground 80 times, and
-   the program counts how often random layouts give an equally good row. The reported `chance` is
-   corrected for every search made (4 kinds of patch × number of pictures). A row found again
-   in another season multiplies the two chances.
-5. Under 10% = "presumption", 10-30% = "weak presumption". It is a presumption, not proof.
-   Natural soil spots can cluster more than random, so the chance is, if anything, optimistic.
+A ploughed-out village rarely leaves clear single features, but its houses stood in a line.
+`sitecheck image` and `batch` look for this:
+1. Many weak patches (4-35 m) of the same kind: dark/reddish soil, light soil, green crop, or
+   hollows from the shading relief.
+2. Lines through 4+ similar patches, each next one 10-75 m on, without a big hole in the line.
+   Real houses are **not** evenly spaced (yards differ), so even spacing only raises the score;
+   it is not required.
+3. Rejected: rows strung along a tramline or track, and "rows" that are one continuous band
+   (the road itself, a slope break, a wet strip): there must be ordinary ground between the patches.
+   Rows parallel to the cultivation lines are flagged and halved.
+4. **Chance check, two ways; the worse one counts.** (a) the same patches scattered at random
+   80 times; (b) every patch moved up to 25 m from where it is, 80 times. (b) keeps the
+   patchiness of the soil, so mottled ground that makes lines easily doesn't fool it. The
+   reported `chance` is corrected for every search made (4 kinds of patch × pictures). A row
+   found again in another year multiplies the chances.
+5. Under 10% = "presumption", 10-20% = "weak presumption". It is a presumption, not proof.
 
-On artificial images without a village it finds no rows. On the 13 Russian test areas it gives
-weak presumptions in 4 areas and none in 1 and 6. Detection of the individual patches is
-the limit, not the statistics.
+**The other side of the street.** Once a row is found, the program looks for a second row of
+the same kind of patch, parallel to it, 20-150 m away, with its own chance check. If it passes,
+a dashed yellow "street?" line is drawn between the two rows.
+
+Tested on the marked packs (screenshots at an assumed 0.3 m/px):
+
+| place | result |
+|---|---|
+| Rus_earth field/2 (2 rows of 7 houses) | both rows, 7/8 and 7/7 patches on marked houses, seen in 3 of 5 years, chance < 0.1% |
+| pack field/4 (2 rows + marked road) | both rows (6/7 and 3/4 on houses), the "street?" line lies 80% on the marked road |
+| pack EmptyPlace (2 pictures, nothing ever there, very patchy soil) | no rows; score 17 and 4 (low). Version 0.7 gave a false row and 28 "moderate" |
+| pack field/1, field/3, field/0, MixFoundPit/14 | no significant row: the houses there are found as patches, but not enough of them line up |
+
+Per picture, a true row reaches chance < 15% in about 1 picture in 5. That's why several years
+of the same place help so much. Patchy soil also scores lower now: colour marks seen in one
+picture only give at most 4 points, marks that come back in 2+ pictures up to 10.
+
+### Learned spot detector
+
+Besides the hand-made detectors, screenshot mode uses a small model trained on the marked packs
+(Rus_earth: 14 areas, 27 pictures; second pack: 20 areas, 70 pictures plus 2 empty places).
+For every round spot it measures ~40 things (colour and brightness against the surroundings,
+rim, shadow side vs sun, roughness, size, similar spots nearby, rank in this picture) and gives a
+0-1 score. It re-ranks the other candidates and adds spots they missed (at half weight).
+- It's 250 small decision trees in `sitecheck/model_pits.json`, run with plain numpy. No AI service,
+  no internet.
+- Not used on very smooth bare fields, or on pictures where nothing resembles the training
+  examples (`report.json` → `learned_model`).
+
+**Honest result.** The hard test is a pack the model never saw: train on one pack, test on the other.
+
+| tested on (model trained on the other pack) | AP before | AP after | correct in top 30 |
+|---|---|---|---|
+| second pack, pit sites (58 pictures) | 0.17 | 0.20 | 24% → 26% |
+| second pack, fields (12) | 0.24 | 0.23 | 42% → 38% |
+| second pack, empty places: candidates scored ≥ 0.5 | 12 and 6 | 0 and 3 | |
+| Rus_earth, all (27) | 0.22 | 0.24 | 25% → 31% |
+
+AP = average precision of the ranked list (1.0 = every marked object above every false one).
+Version 0.7 claimed 0.22 → 0.32. That was tested area by area **inside one pack**, and it did
+not carry over to the second pack (0.18 → 0.20). On its own, the model ranks spots about as
+well as plain spot strength (AP 0.19-0.25 vs 0.19-0.27). Its gain is small and comes from the
+combination. Single pits in screenshots stay hard; rows over several years are the stronger signal.
+
+**Third pack (Geo_Pack: 8 foundation sites, 1 rampart, 13 hard empty fields, real scale from eye
+altitude).** Tested with a model that had never seen it:
+
+| | before model | with model |
+|---|---|---|
+| AP, all marked objects (40 pictures) | 0.18 | 0.22 |
+| AP, house pits | 0.12 | 0.15 |
+| AP, foundations | 0.17 | 0.19 |
+| found at all (any rank): foundations / pits | 77% / 49% | 82% / 57% |
+| top-30 spots that were a marked bush (all 40 pictures) | 47 | 44 |
+
+- **Imagery resolution matters.** AP with the model is 0.24 on 30 cm imagery, 0.22 on 50 cm and 0.20 on 60 cm.
+- **Rows on the 13 hard empty fields:** one false "presumption" (field 3: lines in mottled soil),
+  one "weak", 11 clean. Two filters helped: spots strung along a boundary (field edge, gully, soil
+  band) are now rejected, and a very rare row gets 4x more random trials.
+- **Ramparts are not detected yet.** The linear detectors cover 0-22% of the marked rampart.
+  One fortress is not enough to build or test a rampart detector.
+
+The model is now trained on all three packs: 34 areas, 200+ pictures, 15 empty places, bushes and
+animals as weighted look-alikes.
+
+### Test it on places you know; retrain it on your own
+
+```
+my_marked/
+  foundation/1/   1.png  2.png  3.png  notes.png  1local.txt
+  field/4/        clear.png  marks.png  winter.png ...
+  fortress/       1.png ... knotes.png  info.txt   <- a marked picture straight in the folder = one area
+  Hard_Empty/     1.png ... 13.png  info.txt       <- unmarked pictures straight in a folder = nothing ever stood here
+```
+- **Clean picture**: the one the marks were drawn on is found automatically: same size, most similar.
+- **Marked copy**: `mark`, `note`, `mix` or `quad` in the name. Several marked copies are fine
+  (e.g. `marks.png` + `FieldMarks.png` drawn on a ploughed-year picture): the marks are merged.
+- **Other years/seasons**: same size = already aligned; otherwise aligned automatically.
+- **Scale notes** (any `.txt` in the folder), for example:
+  ```
+  for all height 473 m
+  (for (notes,1) images 30 cm in each pixel )
+  (for (2,3,4,5) images 50 cm in each pixel )
+  ```
+  or one line per picture: `7) height 1.34 km`. The **eye altitude** gives the screen scale
+  (altitude / 1660 m per pixel for a 1920 px wide Google Earth window, 60° view).
+  The **cm per pixel** is the imagery's own resolution: it is recorded and reported, and it decides
+  what can be seen at all (nothing under ~3 imagery pixels), but it is not the screen scale.
+- **Colours** (when more than one colour is used, and the marks are drawn on the same picture):
+
+  | colour | meaning |
+  |---|---|
+  | red or blue loop | house pit |
+  | yellow outline | remains of a foundation (several boxes sharing walls = one per box) |
+  | red cross | animal (a look-alike: not a site) |
+  | black outline | bush / trees (a look-alike) |
+  | orange double line, zigzag between | road |
+  | green double line | rampart / defensive bank |
+
+  One-colour (red) packs work as before: loops are objects, two lines are a road, a loop
+  around 2+ marks is a yard, a zigzag is an area. Spots on a road or inside a yard count
+  neither right nor wrong. Spots on a marked bush or animal count as false and are reported as
+  "fooled by". In training they weigh 3x. `-o` writes a `*_marks.jpg` per area showing how
+  your marks were read.
+
+```bash
+sitecheck evaluate my_marked -o eval_out              # recall / precision / AP per picture and category
+sitecheck train Rus_earth pack my_marked              # validates (area by area, and pack by pack), then saves
+```
+`train` needs `pip install scikit-learn` and prints the held-out scores first. With 2+ packs it
+also prints the pack-by-pack test and compares with plain spot strength. Keep the old model if
+the new one isn't better (use `-o` to write elsewhere). `evaluate` on a pack the model was
+trained on looks better than it really is.
 
 ### Any other data
 Any single-band GeoTIFF works with `--dem` (projected or geographic). Mark surface models with `--dsm`.
@@ -212,11 +330,13 @@ Any single-band GeoTIFF works with `--dem` (projected or geographic). Mark surfa
 
 ```bash
 python tests/test_offline.py      # every downloader against a mock server + no-lidar tools
-python tests/test_image_mode.py   # screenshot mode on a synthetic 'photo' with known pits
+python tests/test_image_mode.py   # screenshot mode on a synthetic 'photo' with known pits (model off)
+sitecheck evaluate Rus_earth      # real marked screenshots (see above)
 ```
 
 Results:
-- 18/18 checks pass.
+- 24/24 checks pass, including the numpy tree model, a two-rows-and-a-street case, reading
+  hand-drawn marks (one-colour and the colour scheme) and the scale notes.
 - Clean 1 m terrain: 30/30 pits, 9/10 foundations, 10/10 roads (10 runs).
 - Point cloud with 15 % vegetation returns: 3/3 pits and the foundation.
 - Surface model with forest: 246 candidates without the filter, 16 with it (pits found: 0 → 3).

@@ -1,0 +1,1008 @@
+[
+ {
+  "type": "pit",
+  "row": 212.79260213942467,
+  "col": 1048.183437861672,
+  "diameter_m": 2.5,
+  "depth_m": 0.06,
+  "volume_m3": 0.2,
+  "roundness": 0.55,
+  "confidence": 1.0,
+  "note": "hollow from shading - house/cellar pit, storage pit, crater, quarry pit or root throw",
+  "source_signal": "shading (photoclinometric relief)",
+  "depth_to_noise": 24.4,
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "pit"
+  ],
+  "id": 1,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": 91.6,
+  "y_m": 39.8,
+  "distance_from_spot_m": 100,
+  "bearing_deg": 67
+ },
+ {
+  "type": "pit",
+  "row": 213.91431758791725,
+  "col": 1095.7526361863845,
+  "diameter_m": 2.2,
+  "depth_m": 0.05,
+  "volume_m3": 0.1,
+  "roundness": 0.68,
+  "confidence": 1.0,
+  "note": "hollow from shading - house/cellar pit, storage pit, crater, quarry pit or root throw",
+  "source_signal": "shading (photoclinometric relief)",
+  "depth_to_noise": 20.4,
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "pit"
+  ],
+  "id": 2,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": 105.8,
+  "y_m": 39.5,
+  "distance_from_spot_m": 113,
+  "bearing_deg": 70
+ },
+ {
+  "type": "pit",
+  "row": 345.6702269433898,
+  "col": 1131.857135682849,
+  "diameter_m": 2.1,
+  "depth_m": 0.03,
+  "volume_m3": 0.1,
+  "roundness": 0.66,
+  "confidence": 1.0,
+  "note": "hollow from shading - house/cellar pit, storage pit, crater, quarry pit or root throw",
+  "source_signal": "shading (photoclinometric relief)",
+  "depth_to_noise": 12.2,
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "pit"
+  ],
+  "id": 3,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": 116.7,
+  "y_m": -0.1,
+  "distance_from_spot_m": 117,
+  "bearing_deg": 90
+ },
+ {
+  "type": "mark",
+  "kind": "snow_patch",
+  "row": 34.42857142857143,
+  "col": 1403.952380952381,
+  "diameter_m": 1.6,
+  "contrast_z": 0.3,
+  "confidence": 0.75,
+  "note": "lingering snow: hollows and shaded pits keep snow longest",
+  "source_signal": "colour anomaly",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "snow_patch"
+  ],
+  "id": 4,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": 198.3,
+  "y_m": 93.3,
+  "distance_from_spot_m": 219,
+  "bearing_deg": 65
+ },
+ {
+  "type": "mark",
+  "kind": "snow_patch",
+  "row": 41.0,
+  "col": 1289.5,
+  "diameter_m": 1.8,
+  "contrast_z": 0.4,
+  "confidence": 0.75,
+  "note": "lingering snow: hollows and shaded pits keep snow longest",
+  "source_signal": "colour anomaly",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "snow_patch"
+  ],
+  "id": 5,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": 163.9,
+  "y_m": 91.3,
+  "distance_from_spot_m": 188,
+  "bearing_deg": 61
+ },
+ {
+  "type": "mark",
+  "kind": "snow_patch",
+  "row": 55.61904761904762,
+  "col": 1448.1309523809523,
+  "diameter_m": 3.1,
+  "contrast_z": 0.4,
+  "confidence": 0.75,
+  "note": "lingering snow: hollows and shaded pits keep snow longest",
+  "source_signal": "colour anomaly",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "snow_patch"
+  ],
+  "id": 6,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": 211.5,
+  "y_m": 87.0,
+  "distance_from_spot_m": 229,
+  "bearing_deg": 68
+ },
+ {
+  "type": "mark",
+  "kind": "snow_patch",
+  "row": 61.57692307692308,
+  "col": 1425.3846153846155,
+  "diameter_m": 1.7,
+  "contrast_z": 0.5,
+  "confidence": 0.75,
+  "note": "lingering snow: hollows and shaded pits keep snow longest",
+  "source_signal": "colour anomaly",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "snow_patch"
+  ],
+  "id": 7,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": 204.7,
+  "y_m": 85.2,
+  "distance_from_spot_m": 222,
+  "bearing_deg": 67
+ },
+ {
+  "type": "mark",
+  "kind": "snow_patch",
+  "row": 69.52,
+  "col": 1441.0,
+  "diameter_m": 1.7,
+  "contrast_z": 0.5,
+  "confidence": 0.75,
+  "note": "lingering snow: hollows and shaded pits keep snow longest",
+  "source_signal": "colour anomaly",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "snow_patch"
+  ],
+  "id": 8,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": 209.4,
+  "y_m": 82.8,
+  "distance_from_spot_m": 225,
+  "bearing_deg": 68
+ },
+ {
+  "type": "mark",
+  "kind": "snow_patch",
+  "row": 78.78571428571429,
+  "col": 1422.5,
+  "diameter_m": 1.8,
+  "contrast_z": 0.2,
+  "confidence": 0.75,
+  "note": "lingering snow: hollows and shaded pits keep snow longest",
+  "source_signal": "colour anomaly",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "snow_patch"
+  ],
+  "id": 9,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": 203.8,
+  "y_m": 80.0,
+  "distance_from_spot_m": 219,
+  "bearing_deg": 69
+ },
+ {
+  "type": "mark",
+  "kind": "snow_patch",
+  "row": 81.47619047619048,
+  "col": 83.9047619047619,
+  "diameter_m": 1.6,
+  "contrast_z": 0.5,
+  "confidence": 0.75,
+  "note": "lingering snow: hollows and shaded pits keep snow longest",
+  "source_signal": "colour anomaly",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "snow_patch"
+  ],
+  "id": 10,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": -197.7,
+  "y_m": 79.2,
+  "distance_from_spot_m": 213,
+  "bearing_deg": 292
+ },
+ {
+  "type": "mark",
+  "kind": "snow_patch",
+  "row": 84.35897435897436,
+  "col": 1395.7179487179487,
+  "diameter_m": 2.1,
+  "contrast_z": 0.4,
+  "confidence": 0.75,
+  "note": "lingering snow: hollows and shaded pits keep snow longest",
+  "source_signal": "colour anomaly",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "snow_patch"
+  ],
+  "id": 11,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": 195.8,
+  "y_m": 78.3,
+  "distance_from_spot_m": 211,
+  "bearing_deg": 68
+ },
+ {
+  "type": "mark",
+  "kind": "snow_patch",
+  "row": 90.63013698630137,
+  "col": 1222.5753424657535,
+  "diameter_m": 2.9,
+  "contrast_z": 0.7,
+  "confidence": 0.75,
+  "note": "lingering snow: hollows and shaded pits keep snow longest",
+  "source_signal": "colour anomaly",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "snow_patch"
+  ],
+  "id": 12,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": 143.9,
+  "y_m": 76.5,
+  "distance_from_spot_m": 163,
+  "bearing_deg": 62
+ },
+ {
+  "type": "mark",
+  "kind": "snow_patch",
+  "row": 88.3103448275862,
+  "col": 1438.655172413793,
+  "diameter_m": 1.8,
+  "contrast_z": 0.3,
+  "confidence": 0.75,
+  "note": "lingering snow: hollows and shaded pits keep snow longest",
+  "source_signal": "colour anomaly",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "snow_patch"
+  ],
+  "id": 13,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": 208.7,
+  "y_m": 77.2,
+  "distance_from_spot_m": 223,
+  "bearing_deg": 70
+ },
+ {
+  "type": "mark",
+  "kind": "snow_patch",
+  "row": 99.08823529411765,
+  "col": 1421.0882352941176,
+  "diameter_m": 2.0,
+  "contrast_z": 0.5,
+  "confidence": 0.75,
+  "note": "lingering snow: hollows and shaded pits keep snow longest",
+  "source_signal": "colour anomaly",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "snow_patch"
+  ],
+  "id": 14,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": 203.4,
+  "y_m": 73.9,
+  "distance_from_spot_m": 216,
+  "bearing_deg": 70
+ },
+ {
+  "type": "mark",
+  "kind": "snow_patch",
+  "row": 106.56,
+  "col": 1438.56,
+  "diameter_m": 1.7,
+  "contrast_z": 0.3,
+  "confidence": 0.75,
+  "note": "lingering snow: hollows and shaded pits keep snow longest",
+  "source_signal": "colour anomaly",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "snow_patch"
+  ],
+  "id": 15,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": 208.7,
+  "y_m": 71.7,
+  "distance_from_spot_m": 221,
+  "bearing_deg": 71
+ },
+ {
+  "type": "mark",
+  "kind": "snow_patch",
+  "row": 113.58333333333333,
+  "col": 1349.6666666666667,
+  "diameter_m": 1.7,
+  "contrast_z": 0.6,
+  "confidence": 0.75,
+  "note": "lingering snow: hollows and shaded pits keep snow longest",
+  "source_signal": "colour anomaly",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "snow_patch"
+  ],
+  "id": 16,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": 182.0,
+  "y_m": 69.6,
+  "distance_from_spot_m": 195,
+  "bearing_deg": 69
+ },
+ {
+  "type": "mark",
+  "kind": "snow_patch",
+  "row": 119.85,
+  "col": 1401.5,
+  "diameter_m": 2.6,
+  "contrast_z": 1.8,
+  "confidence": 0.75,
+  "note": "lingering snow: hollows and shaded pits keep snow longest",
+  "source_signal": "colour anomaly",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "snow_patch"
+  ],
+  "id": 17,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": 197.5,
+  "y_m": 67.7,
+  "distance_from_spot_m": 209,
+  "bearing_deg": 71
+ },
+ {
+  "type": "mark",
+  "kind": "snow_patch",
+  "row": 127.53846153846153,
+  "col": 1186.3076923076924,
+  "diameter_m": 2.1,
+  "contrast_z": 0.5,
+  "confidence": 0.75,
+  "note": "lingering snow: hollows and shaded pits keep snow longest",
+  "source_signal": "colour anomaly",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "snow_patch"
+  ],
+  "id": 18,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": 133.0,
+  "y_m": 65.4,
+  "distance_from_spot_m": 148,
+  "bearing_deg": 64
+ },
+ {
+  "type": "mark",
+  "kind": "snow_patch",
+  "row": 131.29166666666666,
+  "col": 867.4375,
+  "diameter_m": 2.3,
+  "contrast_z": 0.8,
+  "confidence": 0.75,
+  "note": "lingering snow: hollows and shaded pits keep snow longest",
+  "source_signal": "colour anomaly",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "snow_patch"
+  ],
+  "id": 19,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": 37.3,
+  "y_m": 64.3,
+  "distance_from_spot_m": 74,
+  "bearing_deg": 30
+ },
+ {
+  "type": "mark",
+  "kind": "snow_patch",
+  "row": 140.5,
+  "col": 1329.7,
+  "diameter_m": 1.5,
+  "contrast_z": 0.5,
+  "confidence": 0.75,
+  "note": "lingering snow: hollows and shaded pits keep snow longest",
+  "source_signal": "colour anomaly",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "snow_patch"
+  ],
+  "id": 20,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": 176.0,
+  "y_m": 61.5,
+  "distance_from_spot_m": 186,
+  "bearing_deg": 71
+ },
+ {
+  "type": "mark",
+  "kind": "snow_patch",
+  "row": 152.29508196721312,
+  "col": 1339.27868852459,
+  "diameter_m": 2.6,
+  "contrast_z": 0.6,
+  "confidence": 0.75,
+  "note": "lingering snow: hollows and shaded pits keep snow longest",
+  "source_signal": "colour anomaly",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "snow_patch"
+  ],
+  "id": 21,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": 178.9,
+  "y_m": 58.0,
+  "distance_from_spot_m": 188,
+  "bearing_deg": 72
+ },
+ {
+  "type": "mark",
+  "kind": "snow_patch",
+  "row": 149.24,
+  "col": 79.6,
+  "diameter_m": 1.7,
+  "contrast_z": 0.6,
+  "confidence": 0.75,
+  "note": "lingering snow: hollows and shaded pits keep snow longest",
+  "source_signal": "colour anomaly",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "snow_patch"
+  ],
+  "id": 22,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": -199.0,
+  "y_m": 58.9,
+  "distance_from_spot_m": 208,
+  "bearing_deg": 286
+ },
+ {
+  "type": "mark",
+  "kind": "snow_patch",
+  "row": 169.42857142857142,
+  "col": 1322.7142857142858,
+  "diameter_m": 2.0,
+  "contrast_z": 0.4,
+  "confidence": 0.75,
+  "note": "lingering snow: hollows and shaded pits keep snow longest",
+  "source_signal": "colour anomaly",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "snow_patch"
+  ],
+  "id": 23,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": 173.9,
+  "y_m": 52.8,
+  "distance_from_spot_m": 182,
+  "bearing_deg": 73
+ },
+ {
+  "type": "mark",
+  "kind": "snow_patch",
+  "row": 175.375,
+  "col": 1220.25,
+  "diameter_m": 1.7,
+  "contrast_z": 0.4,
+  "confidence": 0.75,
+  "note": "lingering snow: hollows and shaded pits keep snow longest",
+  "source_signal": "colour anomaly",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "snow_patch"
+  ],
+  "id": 24,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": 143.2,
+  "y_m": 51.0,
+  "distance_from_spot_m": 152,
+  "bearing_deg": 70
+ },
+ {
+  "type": "mark",
+  "kind": "snow_patch",
+  "row": 219.45205479452054,
+  "col": 208.97260273972603,
+  "diameter_m": 4.1,
+  "contrast_z": 0.5,
+  "confidence": 0.75,
+  "note": "lingering snow: hollows and shaded pits keep snow longest",
+  "source_signal": "colour anomaly",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "snow_patch"
+  ],
+  "id": 25,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": -160.2,
+  "y_m": 37.8,
+  "distance_from_spot_m": 165,
+  "bearing_deg": 283
+ },
+ {
+  "type": "mark",
+  "kind": "snow_patch",
+  "row": 223.42424242424244,
+  "col": 143.96969696969697,
+  "diameter_m": 1.9,
+  "contrast_z": 1.8,
+  "confidence": 0.75,
+  "note": "lingering snow: hollows and shaded pits keep snow longest",
+  "source_signal": "colour anomaly",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "snow_patch"
+  ],
+  "id": 26,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": -179.7,
+  "y_m": 36.6,
+  "distance_from_spot_m": 183,
+  "bearing_deg": 282
+ },
+ {
+  "type": "mark",
+  "kind": "snow_patch",
+  "row": 225.5483870967742,
+  "col": 1422.8064516129032,
+  "diameter_m": 1.9,
+  "contrast_z": 0.5,
+  "confidence": 0.75,
+  "note": "lingering snow: hollows and shaded pits keep snow longest",
+  "source_signal": "colour anomaly",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "snow_patch"
+  ],
+  "id": 27,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": 203.9,
+  "y_m": 36.0,
+  "distance_from_spot_m": 207,
+  "bearing_deg": 80
+ },
+ {
+  "type": "mark",
+  "kind": "snow_patch",
+  "row": 232.28378378378378,
+  "col": 163.55405405405406,
+  "diameter_m": 2.9,
+  "contrast_z": 1.0,
+  "confidence": 0.75,
+  "note": "lingering snow: hollows and shaded pits keep snow longest",
+  "source_signal": "colour anomaly",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "snow_patch"
+  ],
+  "id": 28,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": -173.8,
+  "y_m": 34.0,
+  "distance_from_spot_m": 177,
+  "bearing_deg": 281
+ },
+ {
+  "type": "mark",
+  "kind": "snow_patch",
+  "row": 250.57142857142858,
+  "col": 92.14285714285714,
+  "diameter_m": 1.6,
+  "contrast_z": 0.4,
+  "confidence": 0.75,
+  "note": "lingering snow: hollows and shaded pits keep snow longest",
+  "source_signal": "colour anomaly",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "snow_patch"
+  ],
+  "id": 29,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": -195.3,
+  "y_m": 28.5,
+  "distance_from_spot_m": 197,
+  "bearing_deg": 278
+ },
+ {
+  "type": "mark",
+  "kind": "snow_patch",
+  "row": 254.58333333333334,
+  "col": 126.58333333333333,
+  "diameter_m": 1.7,
+  "contrast_z": 0.4,
+  "confidence": 0.75,
+  "note": "lingering snow: hollows and shaded pits keep snow longest",
+  "source_signal": "colour anomaly",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "snow_patch"
+  ],
+  "id": 30,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": -184.9,
+  "y_m": 27.3,
+  "distance_from_spot_m": 187,
+  "bearing_deg": 278
+ },
+ {
+  "type": "mark",
+  "kind": "snow_patch",
+  "row": 256.37931034482756,
+  "col": 1418.9655172413793,
+  "diameter_m": 1.8,
+  "contrast_z": 0.3,
+  "confidence": 0.75,
+  "note": "lingering snow: hollows and shaded pits keep snow longest",
+  "source_signal": "colour anomaly",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "snow_patch"
+  ],
+  "id": 31,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": 202.8,
+  "y_m": 26.7,
+  "distance_from_spot_m": 205,
+  "bearing_deg": 82
+ },
+ {
+  "type": "mark",
+  "kind": "snow_patch",
+  "row": 258.7037037037037,
+  "col": 1301.888888888889,
+  "diameter_m": 1.8,
+  "contrast_z": 0.6,
+  "confidence": 0.75,
+  "note": "lingering snow: hollows and shaded pits keep snow longest",
+  "source_signal": "colour anomaly",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "snow_patch"
+  ],
+  "id": 32,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": 167.7,
+  "y_m": 26.0,
+  "distance_from_spot_m": 170,
+  "bearing_deg": 81
+ },
+ {
+  "type": "mark",
+  "kind": "snow_patch",
+  "row": 262.875,
+  "col": 1404.21875,
+  "diameter_m": 1.9,
+  "contrast_z": 0.6,
+  "confidence": 0.75,
+  "note": "lingering snow: hollows and shaded pits keep snow longest",
+  "source_signal": "colour anomaly",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "snow_patch"
+  ],
+  "id": 33,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": 198.4,
+  "y_m": 24.8,
+  "distance_from_spot_m": 200,
+  "bearing_deg": 83
+ },
+ {
+  "type": "mark",
+  "kind": "snow_patch",
+  "row": 273.5652173913044,
+  "col": 1414.3478260869565,
+  "diameter_m": 1.6,
+  "contrast_z": 0.4,
+  "confidence": 0.75,
+  "note": "lingering snow: hollows and shaded pits keep snow longest",
+  "source_signal": "colour anomaly",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "snow_patch"
+  ],
+  "id": 34,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": 201.4,
+  "y_m": 21.6,
+  "distance_from_spot_m": 203,
+  "bearing_deg": 84
+ },
+ {
+  "type": "mark",
+  "kind": "snow_patch",
+  "row": 280.72,
+  "col": 410.4,
+  "diameter_m": 1.7,
+  "contrast_z": 0.5,
+  "confidence": 0.75,
+  "note": "lingering snow: hollows and shaded pits keep snow longest",
+  "source_signal": "colour anomaly",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "snow_patch"
+  ],
+  "id": 35,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": -99.8,
+  "y_m": 19.4,
+  "distance_from_spot_m": 102,
+  "bearing_deg": 281
+ },
+ {
+  "type": "mark",
+  "kind": "snow_patch",
+  "row": 282.1111111111111,
+  "col": 1327.0740740740741,
+  "diameter_m": 1.8,
+  "contrast_z": 0.5,
+  "confidence": 0.75,
+  "note": "lingering snow: hollows and shaded pits keep snow longest",
+  "source_signal": "colour anomaly",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "snow_patch"
+  ],
+  "id": 36,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": 175.2,
+  "y_m": 19.0,
+  "distance_from_spot_m": 176,
+  "bearing_deg": 84
+ },
+ {
+  "type": "mark",
+  "kind": "snow_patch",
+  "row": 286.5416666666667,
+  "col": 1399.4166666666667,
+  "diameter_m": 1.7,
+  "contrast_z": 0.6,
+  "confidence": 0.75,
+  "note": "lingering snow: hollows and shaded pits keep snow longest",
+  "source_signal": "colour anomaly",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "snow_patch"
+  ],
+  "id": 37,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": 196.9,
+  "y_m": 17.7,
+  "distance_from_spot_m": 198,
+  "bearing_deg": 85
+ },
+ {
+  "type": "mark",
+  "kind": "snow_patch",
+  "row": 287.2105263157895,
+  "col": 73.0,
+  "diameter_m": 2.1,
+  "contrast_z": 1.3,
+  "confidence": 0.75,
+  "note": "lingering snow: hollows and shaded pits keep snow longest",
+  "source_signal": "colour anomaly",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "snow_patch"
+  ],
+  "id": 38,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": -201.0,
+  "y_m": 17.5,
+  "distance_from_spot_m": 202,
+  "bearing_deg": 275
+ },
+ {
+  "type": "mark",
+  "kind": "snow_patch",
+  "row": 294.76666666666665,
+  "col": 150.36666666666667,
+  "diameter_m": 1.9,
+  "contrast_z": 0.8,
+  "confidence": 0.75,
+  "note": "lingering snow: hollows and shaded pits keep snow longest",
+  "source_signal": "colour anomaly",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "snow_patch"
+  ],
+  "id": 39,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": -177.8,
+  "y_m": 15.2,
+  "distance_from_spot_m": 178,
+  "bearing_deg": 275
+ },
+ {
+  "type": "mark",
+  "kind": "snow_patch",
+  "row": 298.7083333333333,
+  "col": 180.83333333333334,
+  "diameter_m": 1.7,
+  "contrast_z": 0.5,
+  "confidence": 0.75,
+  "note": "lingering snow: hollows and shaded pits keep snow longest",
+  "source_signal": "colour anomaly",
+  "seen_in_images": [
+   1
+  ],
+  "signals": [
+   "snow_patch"
+  ],
+  "id": 40,
+  "detected_by": "algorithm (image)",
+  "n_images": 1,
+  "user_status": "unreviewed",
+  "x_m": -168.6,
+  "y_m": 14.0,
+  "distance_from_spot_m": 169,
+  "bearing_deg": 275
+ }
+]

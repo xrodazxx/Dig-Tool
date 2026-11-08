@@ -2,6 +2,10 @@
 satellite photo (sun-lit, grass colour, patchy albedo, JPEG), then analysed.
 
     python tests/test_image_mode.py [runs]
+
+The learned model is switched off here: it was trained on real screenshots and (rightly, on real
+data) distrusts shading-only hollows, which is all this artificial photo has. This test checks the
+hand-made detectors; real-data accuracy comes from `sitecheck evaluate <marked folder>`.
 """
 import math
 import os
@@ -11,6 +15,8 @@ import warnings
 
 import cv2
 import numpy as np
+
+os.environ["SITECHECK_NO_MODEL"] = "1"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
