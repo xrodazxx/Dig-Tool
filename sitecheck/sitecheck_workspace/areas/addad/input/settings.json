@@ -1,0 +1,23 @@
+{
+ "images": [
+  "2.png",
+  "1.png",
+  "3.png"
+ ],
+ "lat": null,
+ "lon": null,
+ "mpp": null,
+ "known": null,
+ "masks": [
+  [
+   150.0,
+   477.5,
+   350.0,
+   500
+  ]
+ ],
+ "spot_px": null,
+ "sun_azimuth": null,
+ "coords_text": "",
+ "outlines": true
+}

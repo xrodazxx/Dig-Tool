@@ -66,7 +66,12 @@ def compute(spot: dict, water: dict, features: list[dict], ctx: dict, w: dict) -
             if f.get("n_images", 1) > 1 and len(f.get("seen_in_images", [1, 2])) == 1 \
                     and f.get("user_status") != "confirmed":
                 m *= 0.5          # screenshots: seen in only one of several pictures
-            if m and (f["confidence"] >= cfg["min_confidence"] or f.get("user_status") == "confirmed"):
+            # several pictures: the list is ranked by how many pictures show a spot; for points the
+            # earlier rule stays (strongest picture + 0.2 for every further picture)
+            strength = f["confidence"]
+            if "confidence_best_picture" in f:
+                strength = max(strength, f["confidence_best_picture"] + 0.2 * (len(f.get("seen_in_images", [1])) - 1))
+            if m and (strength >= cfg["min_confidence"] or f.get("user_status") == "confirmed"):
                 pts += cfg["each"] * m
                 used.append(f["id"])
         return min(round(pts, 1), cfg["max"]), used
@@ -119,10 +124,16 @@ def compute(spot: dict, water: dict, features: list[dict], ctx: dict, w: dict) -
         pts = 15 if best["chance"] <= 0.03 else 10 if best["chance"] < 0.10 else 3
         if best.get("along_cultivation"):
             pts /= 2
+        # a row in ONE picture: on 23 marked hard empty fields (patchy, streaky soil) 4 such rows
+        # passed the chance test, so one picture alone is worth at most 6 points
+        one_pic = len(best.get("seen_in_images", [1, 2])) < 2
+        if one_pic:
+            pts = min(pts, 6)
         if any(f.get("parallel_rows", 0) >= 2 for f in rws):
             pts += 5
         add("regular_rows", pts, f"row of {best['n_patches']} patches every {best['spacing_m']:.0f} m "
-            f"(random chance {best['chance'] * 100:.0f}%)", "computed:image")
+            f"(random chance {best['chance'] * 100:.0f}%" + (", one picture only)" if one_pic else ")"),
+            "computed:image")
 
     # --- what the user knows -----------------------------------------------------------
     f = ctx["finds"]

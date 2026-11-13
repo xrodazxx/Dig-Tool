@@ -129,6 +129,9 @@ def main(argv=None):
     p.add_argument("--mask", action="append", default=[], help="X0,Y0,X1,Y1 rectangle to ignore (program UI)")
     p.add_argument("--sun-azimuth", type=float, help="sun azimuth if known (deg from north)")
     p.add_argument("--sun-elevation", type=float, default=30.0)
+    p.add_argument("--outlines", action="store_true",
+                   help="also draw closed outlines (possible banks / ramparts). Not scored: groves, ponds and "
+                        "plots give the same kind of outline")
     p.add_argument("--north", type=float, default=0.0, help="if the image is rotated: azimuth of image 'up'")
     p.add_argument("--water-m", type=float, help="distance to water, m, if you know it")
     p.add_argument("--context")
@@ -154,6 +157,10 @@ def main(argv=None):
     p = sub.add_parser("train", help="train the learned spot detector on areas you marked (needs scikit-learn)")
     p.add_argument("folder", nargs="+", help="one or more marked packs")
     p.add_argument("-o", "--out", help="model file (default: replace the shipped sitecheck/model_pits.json)")
+
+    p = sub.add_parser("cnn-prep", help="prepare marked packs for training the image network (tools/train_cnn.py)")
+    p.add_argument("folder", nargs="+", help="one or more marked packs")
+    p.add_argument("-o", "--out", default="cnn_data")
 
     p = sub.add_parser("ask", help="fill in the questionnaire")
     p.add_argument("-o", "--out", default="context.json")
@@ -193,6 +200,11 @@ def main(argv=None):
         train_main(a.folder, a.out)
         return 0
 
+    if a.cmd == "cnn-prep":
+        from .cnn_data import prepare
+        prepare(a.folder, a.out)
+        return 0
+
     if a.cmd == "ui":
         from .ui.server import serve
         serve(a.workspace, a.port, not a.no_browser)
@@ -215,7 +227,8 @@ def main(argv=None):
             a.mpp = round(mpp_from_altitude(a.altitude, a.view_width), 4)
             print(f"eye altitude {a.altitude:.0f} m, window {a.view_width} px wide -> {a.mpp} m per pixel")
         rep = run_images(a.images, out, lat, lon, a.mpp, a.known, spot, masks, a.sun_azimuth,
-                         a.sun_elevation, a.north, a.context, a.weights, a.water_m)
+                         a.sun_elevation, a.north, a.context, a.weights, a.water_m,
+                         outlines=getattr(a, "outlines", False))
         _print_summary(rep, out)
         return 0
 

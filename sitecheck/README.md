@@ -113,9 +113,24 @@ context only (slope, water, landform), and the report says pits are not visible.
 
 ### No elevation data at all: screenshots (`sitecheck image`)
 
-Give the scale if you can: `--altitude 450` (Google Earth eye altitude, looking straight down;
-add `--view-width` if your map window is not ~1920 px wide), or `--mpp`, or `--known` (two
-points and the distance between them). In the interface: "eye altitude" next to metres per pixel.
+Give the scale if you can: `--altitude 450` (Google Earth eye altitude, looking straight down),
+or `--mpp`, or `--known` (two points and the distance between them). In the interface: "eye
+altitude" next to metres per pixel.
+
+The eye altitude only works with the **width of the map view** in screen pixels (`--view-width`,
+default 1920 = full-screen map). Google Earth Pro's left panel makes the map narrower, so every size
+would come out too small. Measured once by the user (Full HD screen, panel open): a 200 m ruler line
+was 219 px at 1.39 km eye altitude, i.e. **metres per pixel = eye altitude / 1515**, which is a map
+view of 1749 px. Put a line `window 1749 px` in the pack's General info and it holds for the whole pack.
+
+Measuring your own: in Google Earth Pro draw a line of known length with Tools → Ruler, screenshot,
+count its pixels: `window = 2 × altitude × 0.577 × pixels / length`.
+
+Caution: Google Earth's eye altitude is measured **above sea level**, so the camera is really
+`altitude − ground height` above the ground. At 400 m with the ground at 150 m that is a 40 %
+difference. The calibration above already includes the ground height of the place where it was
+measured (unknown). If your places differ a lot in height, write `elev 150 m` (the "elev" Google Earth
+shows at the bottom of the window) in an area's notes, or in General info for the whole pack.
 
 This is for when the only thing available is a satellite view, for example most of Russia south of 60 N.
 Take one or more screenshots of the same view, ideally from **different seasons** (Google Earth has
@@ -259,8 +274,61 @@ altitude).** Tested with a model that had never seen it:
 - **Ramparts are not detected yet.** The linear detectors cover 0-22% of the marked rampart.
   One fortress is not enough to build or test a rampart detector.
 
-The model is now trained on all three packs: 34 areas, 200+ pictures, 15 empty places, bushes and
-animals as weighted look-alikes.
+**Fourth pack (GEO: 25 village sites with 2-5 years each, 6 fortresses, 10 hard empty fields; scale,
+dates and "visible / doubtful / not visible" for every picture).** Again tested with a model that
+had never seen it.
+
+Single pictures, by how well the marked things show according to the notes:
+
+| the marked things are... | pictures | AP before model → with model | found among the top 30 | found at all |
+|---|---|---|---|---|
+| visible | 34 | 0.24 → 0.27 | 64% | 87% |
+| doubtful | 36 | 0.19 → 0.21 | 52% | 72% |
+| not visible | 9 | 0.10 → 0.13 | 41% | 71% |
+
+**Several years of one place together.** This is what clears up doubtful pictures. With 2+ pictures
+the list is now ranked first by how many pictures show a spot, then by how strong it is in them:
+
+| | AP |
+|---|---|
+| one picture at a time (24 places of this pack) | 0.23 |
+| all years together, only the strongest picture counts | 0.29 |
+| all years together, old rule (strongest + bonus per extra picture) | 0.34 |
+| all years together, new rule (count of pictures first) | **0.35** |
+| only the *doubtful* years together (11 places): one at a time → together | 0.25 → 0.31 |
+
+Over all four packs (55 places with 2-6 years): 0.22 one picture at a time, 0.35 together.
+`sitecheck evaluate` prints this as "years together".
+
+Still weak:
+- **Bushes:** about 3 of the top-30 spots per picture sit on vegetation the user outlined.
+- **Hard empty fields:** all 10 score "low" (2-23 points), but 3 of them get a false row
+  "presumption" (lines in mottled soil), and single pictures show 4-18 spots scored ≥ 0.5.
+  Their scale was not given. With the 13 earlier ones: 4 false presumptions on 23 hard empty fields.
+- **The model on its own** ranks no better than plain spot strength on this pack (0.24 vs 0.25);
+  on the three older packs it is slightly better (0.22-0.27 vs 0.18-0.26). The gain comes from
+  combining it with the hand-made detectors, and much more from combining years.
+
+### Ramparts and banks: closed outlines (`--outlines`)
+
+`sitecheck image ... --outlines` (interface: "also draw closed outlines") looks for a closed
+outline: from many trial centres it looks out in 72 directions and finds the smooth closed path
+that follows as much edge (brightness, colour, texture) as possible. With several pictures it
+keeps the outlines that enclose the same ground in 2+ of them.
+
+Tested on 6 marked fortresses (28 pictures) and 25 village sites without one:
+- At 5 of the 6 fortresses more than half of the repeated outline lies on the marked rampart
+  (93, 77, 65, 57, 55 and 21%). The outline is ragged and follows one edge of the bank.
+- **It cannot tell a fortress from anything else.** The same kind of repeated outline appears at
+  22 of the 25 village sites (groves, ponds, plots, patches of different grass). Coverage,
+  edge strength, a second parallel outline, standing out from the rest of the picture: none
+  separates the two groups (0.5-0.6, where 0.5 is a coin toss).
+- So outlines are drawn only on request and add nothing to the score. A rampart is a relief
+  feature: with elevation data (`sitecheck run` / `analyze` on lidar) banks and ditches are found
+  directly. For most of Russia there is no free elevation data fine enough.
+
+The model is now trained on all four packs: 67 areas, 236 pictures, 25 empty places; bushes and
+animals as weighted look-alikes; "not visible" pictures left out.
 
 ### Test it on places you know; retrain it on your own
 
@@ -270,31 +338,48 @@ my_marked/
   field/4/        clear.png  marks.png  winter.png ...
   fortress/       1.png ... knotes.png  info.txt   <- a marked picture straight in the folder = one area
   Hard_Empty/     1.png ... 13.png  info.txt       <- unmarked pictures straight in a folder = nothing ever stood here
+  emptyfield/1/   1.png ... 10.png                 <- an area folder without a marked copy: the same
 ```
 - **Clean picture**: the one the marks were drawn on is found automatically: same size, most similar.
 - **Marked copy**: `mark`, `note`, `mix` or `quad` in the name. Several marked copies are fine
   (e.g. `marks.png` + `FieldMarks.png` drawn on a ploughed-year picture): the marks are merged.
 - **Other years/seasons**: same size = already aligned; otherwise aligned automatically.
-- **Scale notes** (any `.txt` in the folder), for example:
+- **Notes** (any `.txt` in the folder), for example:
   ```
-  for all height 473 m
-  (for (notes,1) images 30 cm in each pixel )
-  (for (2,3,4,5) images 50 cm in each pixel )
+  for all height 406 m
+  window 1749 px
+  coord (54 19 44 N 50 19 38 E)
+  (for (notes,1) Maxar 6.25.2013 )
+  (for (2) Maxar 8.31.2016)
+  (for (3) Airbus 7.6.2024)
+  visible: 1,2
+  doubtful: 3
+  not visible:
   ```
-  or one line per picture: `7) height 1.34 km`. The **eye altitude** gives the screen scale
-  (altitude / 1660 m per pixel for a 1920 px wide Google Earth window, 60° view).
-  The **cm per pixel** is the imagery's own resolution: it is recorded and reported, and it decides
-  what can be seen at all (nothing under ~3 imagery pixels), but it is not the screen scale.
+  - `height`: the **eye altitude**, which gives the screen scale (altitude / 1660 m per pixel for a
+    1920 px wide map view, 60° field of view). `window` is the width of the map view in pixels;
+    a `window` line in the pack's GeneralINFO.txt holds for every area. One line per picture also
+    works: `7) height 1.34 km`.
+  - `coord`: the place (it fixes the sun's height for each date).
+  - Provider and date (month.day.year) per picture. The imagery's own resolution is estimated
+    from them unless you write it (`images 50 cm in each pixel`). It decides what can be seen at
+    all (nothing under ~3 imagery pixels), but it is not the screen scale.
+  - `visible / doubtful / not visible`: how well the marked things show in each picture.
+    "Not visible" pictures are left out of training (the model must not learn to see what is not
+    in the pixels), and results are reported per class.
 - **Colours** (when more than one colour is used, and the marks are drawn on the same picture):
 
   | colour | meaning |
   |---|---|
-  | red or blue loop | house pit |
+  | red loop | house pit |
   | yellow outline | remains of a foundation (several boxes sharing walls = one per box) |
   | red cross | animal (a look-alike: not a site) |
   | black outline | bush / trees (a look-alike) |
+  | blue outline | river, lake (a spot found there is false) |
   | orange double line, zigzag between | road |
-  | green double line | rampart / defensive bank |
+  | green line(s) | rampart / defensive bank (one line, or the inner and outer edge) |
+  | white loop | "maybe, not sure": counts neither right nor wrong |
+  | purple outline | the part of the picture that was checked; everything outside is ignored |
 
   One-colour (red) packs work as before: loops are objects, two lines are a road, a loop
   around 2+ marks is a yard, a zigzag is an area. Spots on a road or inside a yard count
@@ -303,11 +388,13 @@ my_marked/
   your marks were read.
 
 ```bash
-sitecheck evaluate my_marked -o eval_out              # recall / precision / AP per picture and category
+sitecheck evaluate my_marked -o eval_out              # per picture, per category, by visibility, years together
 sitecheck train Rus_earth pack my_marked              # validates (area by area, and pack by pack), then saves
 ```
-`train` needs `pip install scikit-learn` and prints the held-out scores first. With 2+ packs it
-also prints the pack-by-pack test and compares with plain spot strength. Keep the old model if
+`train` needs `pip install scikit-learn` and prints the held-out scores first. Places closer than
+3 km to each other (the same site shot twice, neighbouring sites) are always held out together, so
+the test never trains on the place it is tested on. With 2+ packs it also prints the pack-by-pack
+test and compares with plain spot strength. Keep the old model if
 the new one isn't better (use `-o` to write elsewhere). `evaluate` on a pack the model was
 trained on looks better than it really is.
 
@@ -326,6 +413,63 @@ Any single-band GeoTIFF works with `--dem` (projected or geographic). Mark surfa
 6. **Resolution check**: detects DEMs that were upsampled from coarse data.
 7. **Score**: points from `weights.json`, each one explained. It is a heuristic, not a probability.
 
+## Fifth pack (Fear) and the image network (0.12)
+
+The Fear pack: 74 new places (500 x 500 px, eye altitude 400 m, real scale) plus 25 earlier ones
+again (these are recognised as the same pictures and counted once).
+
+- **Tree model on a pack it has never seen.** Trained on the four older packs and tested on the 199
+  new Fear pictures, it ranks spots WORSE than plain spot strength (AP 0.36 vs 0.47). Once pictures
+  like these are in training, it is better (5-fold by place over all packs: 0.38 vs 0.34). So it
+  learns the look of the packs it has seen and does not carry over well to another zoom, region or
+  screenshot style - a reason to try the image network below, and to keep testing on new places.
+- **Held-out test set** (33 places, 109 pictures, never used for training; list in
+  `sitecheck/cnn_split.json`): current program 0.31 (hand-made detectors alone 0.29); by visibility
+  0.44 visible, 0.32 doubtful, 0.28 not visible. All years of a place together: 0.40 vs 0.33 one
+  picture at a time (30 places).
+
+### Image network (`tools/train_cnn.ipynb`)
+
+A small image network (ResNet-18 start, trained to put a peak on every pit and foundation) learns
+straight from the pictures instead of from ~40 hand-made measurements. It cannot be trained in this
+program (no GPU, no PyTorch) - it is trained once in a free GPU notebook and then runs inside
+sitecheck with plain numpy (0.6 s per 500 x 500 picture, no internet, no AI service).
+
+1. Kaggle (free, ~30 GPU hours a week): create a private Dataset with `sitecheck.zip` and your packs
+   (Rus_earth, pack, Geo_Pack, GEO, Fear). New Notebook → File → Import `tools/train_cnn.ipynb` → add
+   your dataset → Settings: Accelerator GPU, Internet on → Run all (about 1-2 hours).
+   Colab or your own PC with an NVIDIA card work too (set INPUT / WORK at the top).
+2. The notebook prepares the material (duplicates dropped, the same held-out places as above), trains
+   40 epochs with rotations, flips, zoom 0.7-1.4 and colour changes, then scores the network on the
+   held-out places against the current program's stored results (`sitecheck/cnn_baseline.json`).
+3. Download `model_cnn.npz` from the notebook's output into `sitecheck/sitecheck/`. sitecheck uses it
+   **only if** the network combined with the current program beat the program alone by more than 0.01
+   on the held-out places; otherwise the file says `mode: off` and nothing changes. The notebook also
+   checks that the numpy runner gives the same maps as PyTorch, and refuses to save otherwise.
+   `report.json → per_image → image_network` shows whether it was used and its test scores.
+
+Without `model_cnn.npz` everything works as before. `sitecheck cnn-prep packs... -o cnn_data`
+prepares the material on your own computer if you prefer.
+
+## Changes in 0.11 (code review)
+
+Measured on the 82 marked pictures of the GEO pack (hand-made detectors, ranking quality):
+- **Small shift between imagery dates corrected**: same-view pictures from different satellite
+  passes sit a few metres apart (52 of 120 corrected, median 3.5 m). 0.20 → 0.23.
+- **Scale with the Google Earth side panel open**: `window` line / `--view-width` (see above).
+- **Sun from the picture date** is computed from the notes and reported, but NOT used for the
+  shading relief: on these pictures it did not help (0.20 → 0.19) even though the sun estimated
+  from shadows is off by ~50° on median. The relief from shading adds little; brightness and
+  colour carry the detection.
+- **A row of houses seen in one picture only** now gives at most 6 points (was up to 15). On the
+  hard empty fields such single-picture rows were the main false alarm.
+- **Same row counted twice** when found in two pictures: fixed. **Big soil patches** now merge
+  across years (the merge distance grows with the patch size).
+- **Training test** holds places within 3 km out together (foundation/14 and /15 have the same
+  coordinates). Result unchanged (0.26), so the earlier numbers were not inflated.
+- Interface showed "both pictures" for any repeat; now "in N of M pictures". The AI prompt
+  explains what `confidence` means with several pictures.
+
 ## Tests
 
 ```bash
@@ -335,8 +479,9 @@ sitecheck evaluate Rus_earth      # real marked screenshots (see above)
 ```
 
 Results:
-- 24/24 checks pass, including the numpy tree model, a two-rows-and-a-street case, reading
-  hand-drawn marks (one-colour and the colour scheme) and the scale notes.
+- 28/28 checks pass, including the numpy tree model, the numpy image-network runner, a
+  two-rows-and-a-street case, reading hand-drawn marks (one-colour and the full colour scheme), the
+  notes file and a ring-shaped outline.
 - Clean 1 m terrain: 30/30 pits, 9/10 foundations, 10/10 roads (10 runs).
 - Point cloud with 15 % vegetation returns: 3/3 pits and the foundation.
 - Surface model with forest: 246 candidates without the filter, 16 with it (pits found: 0 → 3).

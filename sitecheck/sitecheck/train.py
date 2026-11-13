@@ -7,6 +7,7 @@ the final model is trained on everything and saved as JSON (numpy-only at run ti
 Needs scikit-learn for training only.
 """
 import json
+import math
 import os
 import warnings
 
@@ -18,7 +19,7 @@ from . import evaluate as EV, groundtruth as G, learned as LM
 PARAMS = dict(max_iter=250, learning_rate=0.05, max_leaf_nodes=15, l2_regularization=1.0, random_state=0)
 
 
-def collect(roots, skip_categories=()):
+def collect(roots, skip_categories=(), use_notes=False):
     """Candidate spots + features + labels for every picture of every marked area.
     Places marked as empty (pictures straight in a category folder) give only negatives."""
     roots = [roots] if isinstance(roots, str) else list(roots)
@@ -30,12 +31,23 @@ def collect(roots, skip_categories=()):
                 continue
             ref, gt, seasons = G.prepare(e)
             key = (tag + "/" if tag else "") + f"{e['category']}_{e['area']}"
+            if not e.get("negative") and not gt["objects"]:
+                continue        # only ramparts / roads marked: says nothing about single spots
             for s in seasons:
                 if not s["ok"]:
                     continue
+                if s.get("visibility") == "not visible":
+                    # the notes say the marked things cannot be seen in this picture: teaching the
+                    # model to "find" them here would teach it to see what is not in the pixels
+                    print(f"  {key} {s['name']}: marked as not visible - left out", flush=True)
+                    continue
                 rgb = s["rgb"]
                 valid = rgb.max(-1) > 0.02
-                cands, X = LM.candidates_and_features(rgb, valid, lat=e["lat"])
+                # with notes: the sun of the picture's date, and the picture brought to the standard
+                # scale - the same way `sitecheck image` will see it
+                sun_az = s.get("sun_azimuth") if use_notes else None
+                mpp_s = s.get("mpp") if use_notes else None
+                cands, X = LM.candidates_and_features(rgb, valid, sun_az=sun_az, lat=e["lat"], mpp=mpp_s)
                 if not cands:
                     continue
                 XA = LM.augment(cands, X)
@@ -51,10 +63,36 @@ def collect(roots, skip_categories=()):
                              "XA": XA[keep], "y": np.array([x[1] for x in scored])[keep],
                              "ids": [x[2] for x in scored if x[2] is not None],
                              "w": np.where(look[keep] & ~np.array([x[1] for x in scored])[keep], 3.0, 1.0),
-                             "n_obj": len(gt["objects"]), "negative": bool(e.get("negative"))})
+                             "n_obj": len(gt["objects"]), "negative": bool(e.get("negative")),
+                             "visibility": s.get("visibility"), "lat": e.get("lat"), "lon": e.get("lon")})
                 print(f"  {key} {s['name']}: {int(keep.sum())} spots, {int(rows[-1]['y'].sum())} on marked objects"
                       + (" (empty place)" if e.get("negative") else ""), flush=True)
     return rows
+
+
+def place_groups(rows, km=3.0):
+    """Areas closer than `km` to each other (same site shot twice, neighbouring sites in one
+    landscape) form one group, so a held-out test never trains on the same place."""
+    pos = {}
+    for r in rows:
+        if r.get("lat") is not None:
+            pos[r["key"]] = (r["lat"], r["lon"])
+    keys = sorted({r["key"] for r in rows})
+    parent = {k: k for k in keys}
+
+    def find(k):
+        while parent[k] != k:
+            parent[k] = parent[parent[k]]
+            k = parent[k]
+        return k
+    pk = list(pos)
+    for i, a in enumerate(pk):
+        for b in pk[i + 1:]:
+            (la, lo), (lb, lob) = pos[a], pos[b]
+            d = math.hypot((la - lb) * 111.0, (lo - lob) * 111.0 * math.cos(math.radians(la)))
+            if d < km:
+                parent[find(a)] = find(b)
+    return {k: find(k) for k in keys}
 
 
 def export(m):
@@ -64,24 +102,35 @@ def export(m):
         trees.append({"f": nodes["feature_idx"].astype(int).tolist(), "t": nodes["num_threshold"].astype(float).tolist(),
                       "l": nodes["left"].astype(int).tolist(), "r": nodes["right"].astype(int).tolist(),
                       "leaf": nodes["is_leaf"].astype(int).tolist(), "v": nodes["value"].astype(float).tolist()})
-    return {"type": "gbt", "augment": True, "baseline": float(np.ravel(m._baseline_prediction)[0]), "trees": trees}
+    return {"type": "gbt", "augment": True, "standard_scale": STANDARD_SCALE,
+            "baseline": float(np.ravel(m._baseline_prediction)[0]), "trees": trees}
 
 
-def main(roots, out=None, cv_dir=None):
+STANDARD_SCALE = False
+
+
+def main(roots, out=None, cv_dir=None, use_notes=False):
+    """use_notes=True: features measured with the sun of each picture's date and the picture brought
+    to 0.3 m/px. Tested on 4 packs (211 pictures, places within 3 km held out together): AP 0.267
+    with, 0.264 without - no real gain, so it is off by default."""
+    global STANDARD_SCALE
+    STANDARD_SCALE = bool(use_notes)
     try:
         from sklearn.ensemble import HistGradientBoostingClassifier
     except ImportError:
         raise SystemExit("training needs scikit-learn:  pip install scikit-learn   (using the model does not)")
-    rows = collect(roots)
+    rows = collect(roots, use_notes=use_notes)
     if not rows:
         raise SystemExit(f"no marked areas found in {roots}")
     keys = sorted({r["key"] for r in rows if not r["negative"]})     # empty places: training only
     if len(keys) < 3:
         raise SystemExit(f"only {len(keys)} marked area(s): mark at least 3 (better 10+) so the model can be "
                          "tested on areas it has not seen")
+    groups = place_groups(rows)
     res = []
     for k in keys:                                   # honest test: never trained on the tested area
-        tr = [r for r in rows if r["key"] != k]
+        g = groups[k]                                # ... nor on any place within 3 km of it
+        tr = [r for r in rows if groups[r["key"]] != g]
         m = HistGradientBoostingClassifier(**PARAMS).fit(np.vstack([r["XA"] for r in tr]),
                                                          np.concatenate([r["y"] for r in tr]),
                                                          sample_weight=np.concatenate([r["w"] for r in tr]))

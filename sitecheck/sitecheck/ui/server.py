@@ -168,7 +168,7 @@ def create_app(workspace: str) -> Flask:
     def set_settings(a):
         s = load_settings(a)
         body = request.json or {}
-        for k in ("lat", "lon", "mpp", "known", "masks", "spot_px", "sun_azimuth", "images", "coords_text"):
+        for k in ("lat", "lon", "mpp", "known", "masks", "spot_px", "sun_azimuth", "images", "coords_text", "outlines"):
             if k in body:
                 s[k] = body[k]
         if body.get("coords_text"):
@@ -204,7 +204,8 @@ def create_app(workspace: str) -> Flask:
             JOBS[a].update(state="running", step="analysing screenshots")
             run_images(paths, res, s.get("lat"), s.get("lon"), mpp=s.get("mpp"),
                        spot_px=tuple(s["spot_px"]) if s.get("spot_px") else None,
-                       masks=[tuple(m) for m in s.get("masks") or []], sun_az=s.get("sun_azimuth"))
+                       masks=[tuple(m) for m in s.get("masks") or []], sun_az=s.get("sun_azimuth"),
+                       outlines=bool(s.get("outlines")))
             JOBS[a].update(state="done", finished=time.time())
         except Exception as ex:  # noqa: BLE001
             JOBS[a].update(state="error", error=str(ex), trace=traceback.format_exc()[-2000:])

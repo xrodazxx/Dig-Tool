@@ -418,6 +418,68 @@ def main():
                 f"{kinds.count('foundation')} foundations, {kinds.count('pit')} pits, look-alikes {la}, "
                 f"road {'yes' if g2['roads'][220, 400] else 'no'}, rampart {'yes' if g2['ramparts'][320, 400] else 'no'}")
 
+    # ---- Notes: provider + date, coordinates, visibility --------------------------------------
+    n3 = SCL.parse_notes("for all height 1.09 km\ncoord (53 14 01 N 38 33 26 E)\nsize for all screenshot 992 x 532\n"
+                         "(for (notes,1) CNES/Airbus 5.31.2014 )\n(for (2 Maxar 10.8.2020)\n(for (3,4 Maxar 9.17.2006)\n"
+                         "visible: 1\ndoubtful: 2 3\nnot visible: 4\n",
+                         ["1.png", "2.png", "3.png", "4.png", "notes.png"])
+    ok &= check("Notes: date and provider per picture, coordinates, visible / doubtful / not visible",
+                n3["2.png"]["date"] == "2020-10-08" and n3["1.png"]["provider"] == "CNES/Airbus"
+                and abs(n3["_area"]["lat"] - 53.2336) < 0.001 and abs(n3["_area"]["lon"] - 38.5572) < 0.001
+                and n3["1.png"]["visibility"] == "visible" and n3["3.png"]["visibility"] == "doubtful"
+                and n3["4.png"]["visibility"] == "not visible" and n3["4.png"]["date"] == "2006-09-17"
+                and abs(n3["1.png"]["mpp"] - 0.6555) < 0.002,
+                f"{n3['2.png']['date']} {n3['1.png']['provider']}, {n3['_area']['lat']} {n3['_area']['lon']}, "
+                f"sun {n3['2.png'].get('sun_elevation')} deg")
+
+    # ---- More colours: white = not sure, purple = checked area, blue = water --------------------
+    base3 = np.clip(0.45 + 0.02 * rng.standard_normal((400, 800, 3)), 0, 1).astype(np.float32)
+    mk3 = (base3 * 255).astype(np.uint8).copy()
+    cv2.ellipse(mk3, (400, 200), (330, 160), 0, 0, 360, (200, 0, 255), 2)      # purple: what was checked
+    cv2.circle(mk3, (300, 200), 12, (255, 0, 0), 2)                             # a pit
+    cv2.ellipse(mk3, (450, 200), (30, 20), 0, 0, 360, (255, 255, 255), 2)       # white: maybe
+    cv2.ellipse(mk3, (560, 220), (40, 30), 0, 0, 360, (0, 0, 255), 2)           # blue: pond
+    g3 = GT.extract(base3, mk3.astype(np.float32) / 255)
+    from sitecheck import evaluate as EVt
+    cands3 = [{"row": 200, "col": 300, "confidence": .9}, {"row": 200, "col": 450, "confidence": .8},
+              {"row": 20, "col": 20, "confidence": .7}, {"row": 100, "col": 400, "confidence": .6},
+              {"row": 220, "col": 560, "confidence": .5}]
+    sc3, _ = EVt.match(cands3, g3, (400, 800))
+    ok &= check("White loop and outside the purple outline are ignored; a spot in marked water is false",
+                len(g3["objects"]) == 1 and g3["unsure"][200, 450] and g3["checked"][200, 400]
+                and not g3["checked"][20, 20] and g3["water"][220, 560]
+                and [x[1] for x in sc3] == [True, False, False],
+                f"{len(g3['objects'])} pit, scored spots: {[x[1] for x in sc3]} (of 5 given)")
+
+    # ---- Closed outline (rampart-like ring) ---------------------------------------------------
+    from sitecheck import enclosure as ENC
+    ring = np.clip(0.42 + 0.015 * rng.standard_normal((500, 600, 3)), 0, 1).astype(np.float32)
+    gy5, gx5 = np.mgrid[:500, :600]
+    rad5 = np.hypot((gy5 - 250) / 0.8, gx5 - 300)
+    ring[(rad5 > 150) & (rad5 < 170)] += 0.10                                   # a lighter band, 60 x 48 m radius
+    outl = ENC.find_enclosures(np.clip(ring, 0, 1), np.ones((500, 600), bool), 0.4, max_n=1)
+    o5 = outl[0] if outl else None
+    ok &= check("Closed outline: a ring-shaped band is traced all the way round",
+                o5 is not None and o5["coverage"] > 0.9 and abs(o5["row"] - 250) < 40 and abs(o5["col"] - 300) < 40
+                and 80 < o5["size_m"][0] < 160,
+                f"coverage {o5['coverage'] if o5 else None}, size {o5['size_m'] if o5 else None} m")
+
+    # ---- Image network: numpy runner, training targets ------------------------------------------
+    from sitecheck import cnn as CNN, cnn_data as CD
+    xx = rng.random((3, 9, 8)).astype(np.float32)
+    ww = rng.random((4, 3, 3, 3)).astype(np.float32)
+    yy_ = CNN.conv2d(xx, ww, np.zeros(4, np.float32), 2, 1)
+    xp_ = np.pad(xx, ((0, 0), (1, 1), (1, 1)))
+    ref_ = np.array([[[(xp_[:, 2 * i:2 * i + 3, 2 * j:2 * j + 3] * ww[o]).sum() for j in range(yy_.shape[2])]
+                      for i in range(yy_.shape[1])] for o in range(4)])
+    rm = CNN.random_model()
+    hm_ = CNN.heatmaps(rng.random((133, 171, 3)).astype(np.float32), rm, mpp=0.3)
+    tg = CD.targets(np.array([[50, 60, 12, 0], [100, 30, 40, 1]], np.float32), (160, 160))
+    ok &= check("Image network: numpy layers exact, any picture size, every object gets a target peak",
+                np.abs(yy_ - ref_).max() < 1e-4 and hm_.shape == (2, 133, 171)
+                and tg[0].max() == 1.0 and tg[1].max() == 1.0 and tg.shape == (2, 40, 40),
+                f"conv diff {np.abs(yy_ - ref_).max():.1e}, heat maps {hm_.shape}")
+
     print("\nALL PASSED" if ok else "\nSOME TESTS FAILED")
     print("outputs in", TMP)
     return 0 if ok else 1

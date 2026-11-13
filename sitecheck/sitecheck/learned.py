@@ -1,16 +1,17 @@
 """Detector learned from the user's marked examples (no AI service, a small statistical model).
 
-1. candidates: dark and light round spots at several scales (Laplacian of Gaussian)
-2. features: simple, interpretable measurements around each spot, all relative to the
-   spot's own size and to the local surroundings (so they work at any zoom):
-     centre / rim / surroundings brightness and colour, roughness, light-shadow pair and
-     its direction relative to the sun, land cover, how many similar spots are nearby
-3. model: logistic regression on those features (weights stored in a small JSON file),
-   trained and validated area-by-area on the marked examples (see tools/train_model.py)
+1. candidates: dark and light round spots at several sizes (Laplacian of Gaussian)
+2. features: simple, interpretable measurements around each spot, relative to the local
+   surroundings: centre / rim / surroundings brightness and colour, roughness, light-shadow pair
+   and its direction relative to the sun, land cover, how many similar spots are nearby
+3. model: gradient-boosted trees stored as JSON and evaluated with numpy (see train.py),
+   validated area by area and pack by pack on the marked examples
 
-The model's output is a probability-like score in 0..1 that the spot is the kind of thing the
-user marked (house pit, house remains, soil patch of a house) - it is only as good as the
-examples it was trained on.
+When the scale of the picture is known it is first brought to STD_MPP metres per pixel, so a 6 m
+house pit has the same size in pixels whatever the zoom of the screenshot was.
+
+The model's output is a score in 0..1 that the spot is the kind of thing the user marked - it is
+only as good as the examples it was trained on.
 """
 from __future__ import annotations
 
@@ -25,7 +26,8 @@ from skimage.feature import blob_log
 
 from . import imagery as im
 
-SCALES_PX = (3.0, 4.5, 6.5, 9.5, 14.0, 20.0)       # spot radius in pixels
+SCALES_PX = (3.0, 4.5, 6.5, 9.5, 14.0, 20.0)       # spot radius in pixels of the standard-scale picture
+STD_MPP = 0.3                                       # = radius 0.9 ... 6 m
 FEATURES = None                                     # filled by feature_names()
 
 
@@ -69,10 +71,27 @@ def feature_names():
     return names
 
 
-def candidates_and_features(rgb, valid=None, sun_az=None, lat=None, max_per_polarity=220):
-    """Returns (cands, X): cands = [{row, col, radius_px, dark}], X = (n, n_features)."""
+def to_standard_scale(rgb, valid, mpp):
+    """Picture resampled to STD_MPP (when the scale is known and differs by more than ~12 %).
+    Returns (rgb, valid, f): f = size factor applied (1.0 = untouched). Upsampling is limited:
+    it cannot add detail."""
+    if not mpp:
+        return rgb, valid, 1.0
+    f = float(np.clip(mpp / STD_MPP, 0.4, 1.6))
+    if abs(f - 1.0) < 0.12:
+        return rgb, valid, 1.0
+    out = cv2.resize(np.ascontiguousarray(rgb), None, fx=f, fy=f,
+                     interpolation=cv2.INTER_AREA if f < 1 else cv2.INTER_CUBIC)
+    v = cv2.resize(valid.astype(np.uint8), (out.shape[1], out.shape[0]), interpolation=cv2.INTER_NEAREST) > 0
+    return np.clip(out, 0, 1).astype(np.float32), v, f
+
+
+def candidates_and_features(rgb, valid=None, sun_az=None, lat=None, max_per_polarity=220, mpp=None):
+    """Returns (cands, X): cands = [{row, col, radius_px, dark}] in the pixels of the picture
+    given, X = (n, n_features) measured on the standard-scale picture."""
     if valid is None:
         valid = rgb.max(-1) > 0.02
+    rgb, valid, f_std = to_standard_scale(rgb, valid, mpp)
     H, W = valid.shape
     ch = channels(rgb)
     L = ch["L"]
@@ -130,6 +149,7 @@ def candidates_and_features(rgb, valid=None, sun_az=None, lat=None, max_per_pola
         maps[("dip", si, "y")] = _conv(Lv, ky)
 
     img_contrast = float(np.std(Lv[valid])) if valid.any() else 0.1
+    bright97 = float(np.percentile(Lv[valid], 97)) if valid.any() else 1.0
     sd_map = loc_sd
     pts = np.array([[c["row"], c["col"]] for c in cands])
     darks = np.array([c["dark"] for c in cands])
@@ -150,6 +170,7 @@ def candidates_and_features(rgb, valid=None, sun_az=None, lat=None, max_per_pola
         dip = math.hypot(dx, dy)
         # bright side towards the sun = raised (bush, mound); dark side towards the sun = hollow
         dip_sun = float(dx * sun_vec[0] + dy * sun_vec[1]) if sun_vec is not None else 0.0
+        c["dipole_xy"] = (float(dx), float(dy))
         same = (darks == c["dark"])
         dist = np.hypot(pts[:, 0] - c["row"], pts[:, 1] - c["col"])
         dist[i] = 1e9
@@ -162,10 +183,13 @@ def candidates_and_features(rgb, valid=None, sun_az=None, lat=None, max_per_pola
               c["radius_px"], float(c["dark"]),
               near, min(nn, 50.0),
               float(cls["snow"][r_, c_]), float(cls["trees"][r_, c_]), float(cls["field"][r_, c_]),
-              float(cls["open"][r_, c_]), float(Lv[r_, c_] > np.percentile(Lv[valid], 97)),
+              float(cls["open"][r_, c_]), float(Lv[r_, c_] > bright97),
               img_contrast, float(maps[("L", si, "d")][r_, c_]), float(maps[("b", si, "d")][r_, c_]),
               float(maps[("g", si, "d")][r_, c_])]
         X.append(f)
+    if f_std != 1.0:                       # back to the pixels of the picture that was given
+        for c in cands:
+            c["row"], c["col"], c["radius_px"] = c["row"] / f_std, c["col"] / f_std, c["radius_px"] / f_std
     return cands, np.nan_to_num(np.array(X, np.float32), nan=0.0, posinf=0.0, neginf=0.0)
 
 
@@ -262,13 +286,13 @@ def predict(X, model, cands=None):
     return 1 / (1 + np.exp(-logit))
 
 
-def detect(rgb, valid=None, sun_az=None, lat=None, model=None, min_p=0.35, max_n=60):
+def detect(rgb, valid=None, sun_az=None, lat=None, model=None, min_p=0.35, max_n=60, mpp=None):
     """Spots the learned model believes are what the user marked. Same dict format as the
     other image candidates."""
     model = model or load_model()
     if model is None:
         return []
-    cands, X = candidates_and_features(rgb, valid, sun_az, lat)
+    cands, X = candidates_and_features(rgb, valid, sun_az, lat, mpp=mpp if model.get("standard_scale") else None)
     if not cands:
         return []
     p = predict(X, model, cands)

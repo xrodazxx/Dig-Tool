@@ -125,6 +125,33 @@ def align(ref_rgb, ref_valid, rgb, valid):
     return warp, float(cc)
 
 
+def refine_same_view(ref_rgb, ref_valid, rgb, valid, mpp, max_shift_m=12.0):
+    """For pictures of the same size, taken without moving the camera (different imagery dates).
+
+    The framing is the same, but the imagery itself is not: different satellite passes sit a few
+    metres apart on the ground. So a small correction is looked for - and accepted only if it IS
+    small (no zoom, at most `max_shift_m`). Otherwise the picture is used exactly as it was framed,
+    never thrown away. Measured on the user's marked packs: of 120 same-view pictures 52 got a
+    correction (median 3.5 m, 90 % under 7.4 m); on 82 marked pictures ranking quality of the
+    hand-made detectors went from 0.20 as framed to 0.23 with the correction.
+    Returns (warp 2x3 reference pixel -> picture pixel, info)."""
+    ident = np.eye(2, 3, dtype=np.float32)
+    try:
+        wmat, cc = align(ref_rgb, ref_valid, rgb, valid)
+    except cv2.error:
+        return ident, {"correction": "none (as framed)", "shift_m": 0.0}
+    sc = math.sqrt(abs(float(np.linalg.det(wmat[:, :2]))))
+    H, W = ref_valid.shape
+    cx, cy = W / 2, H / 2
+    shift = math.hypot(wmat[0, 0] * cx + wmat[0, 1] * cy + wmat[0, 2] - cx,
+                       wmat[1, 0] * cx + wmat[1, 1] * cy + wmat[1, 2] - cy) * mpp
+    rot = abs(math.degrees(math.atan2(wmat[1, 0], wmat[0, 0])))
+    if cc > 0.3 and abs(sc - 1) < 0.03 and rot < 1.5 and shift <= max_shift_m:
+        return wmat, {"correction": "small shift between imagery dates", "shift_m": round(shift, 1),
+                      "correlation": round(cc, 2)}
+    return ident, {"correction": "none (as framed)", "shift_m": 0.0, "correlation": round(cc, 2)}
+
+
 def warp_to(ref_shape, img, warp, interp=cv2.INTER_LINEAR):
     return cv2.warpAffine(img, warp, (ref_shape[1], ref_shape[0]), flags=interp + cv2.WARP_INVERSE_MAP,
                           borderMode=cv2.BORDER_CONSTANT, borderValue=0)
@@ -149,7 +176,6 @@ def classify(rgb, valid, mpp):
     # texture = local standard deviation at ~2 m, compared with the smoothest ground
     sig = max(1.0, 2.0 / mpp)
     Lf = np.where(nosnow, L, np.median(L[nosnow]) if nosnow.any() else 0.5).astype("float32")
-    w = cv2.dilate(nosnow.astype(np.uint8), np.ones((3, 3), np.uint8), iterations=0).astype("float32")
     w = (ndi.binary_erosion(nosnow, iterations=2) | ~ndi.binary_dilation(snow, iterations=3)).astype("float32") * nosnow
     W1 = np.maximum(cv2.GaussianBlur(w, (0, 0), sig), 1e-3)
     m1 = cv2.GaussianBlur(Lf * w, (0, 0), sig) / W1
@@ -342,6 +368,9 @@ def marks(rgb, cls, mpp, min_m=1.5, max_m=25.0):
             d = p.equivalent_diameter_area * mpp
             if not (min_m <= d <= max_m) or p.solidity < 0.6 or p.eccentricity > 0.95:
                 continue
+            # brightness contrast for every kind, green spots included: scoring green spots by their
+            # greenness instead lifts all of them over the reporting threshold (synthetic test:
+            # false spots 13.5 -> 23 per picture), and no gain on the marked packs was shown
             strength = float(np.abs(zL[p.coords[:, 0], p.coords[:, 1]]).mean())
             conf = 0.75 if kind == "snow_patch" else float(np.clip((strength - 2.0) / 4.0, 0.05, 0.9))
             out.append({"type": "mark", "kind": kind, "row": float(p.centroid[0]), "col": float(p.centroid[1]),
@@ -365,10 +394,13 @@ def plausible_sun(az, lat):
     return az, False
 
 
-def _fine_texture(rgb, valid):
-    """Small-scale brightness texture (std of the Laplacian of L after a 3 px blur). Ploughed or
-    harrowed fields are very smooth (< 0.13 on 0.3 m/px screenshots); grass, scrub and village
-    sites are rougher."""
+def _fine_texture(rgb, valid, mpp=None):
+    """Small-scale brightness texture (std of the Laplacian of L after a 3 px blur, on the picture
+    brought to 0.3 m/px when its scale is known). Ploughed or harrowed fields are very smooth
+    (< 0.13); grass, scrub and village sites are rougher."""
+    if mpp:
+        from . import learned
+        rgb, valid, _ = learned.to_standard_scale(rgb, valid, mpp)
     L = cv2.cvtColor(np.clip(rgb, 0, 1).astype(np.float32), cv2.COLOR_RGB2Lab)[..., 0]
     lap = cv2.Laplacian(cv2.GaussianBlur(L, (0, 0), 3), cv2.CV_32F)
     return float(np.std(lap[valid])) if valid.any() else 1.0
@@ -385,7 +417,7 @@ def _merge_learned(cands, learned_c, mpp):
         best, bj = None, None
         for j, l in enumerate(learned_c):
             d = math.hypot(c["row"] - l["row"], c["col"] - l["col"])
-            if d <= max(2.0 * l["radius_px"], 6.0 / mpp ** 0.5) and (best is None or d < best):
+            if d <= max(2.0 * l["radius_px"], 3.0 / mpp) and (best is None or d < best):      # 3 m
                 best, bj = d, j
         if bj is None:
             c["learned_p"] = 0.0
@@ -407,7 +439,8 @@ def _merge_learned(cands, learned_c, mpp):
     return cands
 
 
-def analyse_image(rgb, valid, mpp, sun_az=None, sun_el=30.0, lat=None, north_up_deg=0.0, model="default"):
+def analyse_image(rgb, valid, mpp, sun_az=None, sun_el=30.0, lat=None, north_up_deg=0.0, model="default",
+                  scale_known=True, cnn_model="default"):
     cls = classify(rgb, valid, mpp)
     s = shading(rgb, cls, mpp)
     est = estimate_sun(s, cls["open"], mpp)
@@ -472,10 +505,14 @@ def analyse_image(rgb, valid, mpp, sun_az=None, sun_el=30.0, lat=None, north_up_
         from . import learned
         mdl = learned.load_model() if model == "default" else model
         if mdl is not None:
-            lc = learned.detect(rgb, valid, None if az_used is None else az_used, lat, model=mdl, min_p=0.2)
-            lc = [c for c in lc if not cls["forest"][int(c["row"]), int(c["col"])]]
+            std = bool(mdl.get("standard_scale"))
+            # the sun as the model was trained with it: given (user / picture date), else estimated inside
+            lc = learned.detect(rgb, valid, None if sun_az is None else az_used, lat, model=mdl, min_p=0.2,
+                                mpp=mpp if (std and scale_known) else None)
+            lc = [c for c in lc if not cls["forest"][min(int(c["row"]), valid.shape[0] - 1),
+                                                     min(int(c["col"]), valid.shape[1] - 1)]]
             top = max([c["learned_p"] for c in lc] or [0.0])
-            smooth = _fine_texture(rgb, valid)
+            smooth = _fine_texture(rgb, valid, mpp if (std and scale_known) else None)
             # if nothing in the picture looks like the marked examples, the model probably does not
             # know this kind of picture (other region, zoom, sensor): then it is not allowed to re-rank.
             # Very smooth ground = a ploughed field: the model was trained on grass/scrub village sites
@@ -489,6 +526,23 @@ def analyse_image(rgb, valid, mpp, sun_az=None, sun_el=30.0, lat=None, north_up_
                                      ("smooth bare field - model not used (rows of patches matter here)"
                                       if smooth < 0.13 else
                                       "nothing here resembles the marked training examples - model not used")}
+    # the image network (sitecheck/model_cnn.npz, trained in tools/train_cnn.py) - only if its own
+    # test on held-out places said it improves the result ("mode": "merge")
+    if cnn_model is not None:
+        from . import cnn as _cnn
+        cm = _cnn.load_model() if cnn_model == "default" else cnn_model
+        if cm is not None:
+            meta = cm[1]
+            if meta.get("mode") == "merge":
+                cc = _cnn.detect(rgb, valid, mpp if scale_known else None, model=cm)
+                cc = [c for c in cc if not cls["forest"][int(c["row"]), int(c["col"])]]
+                mw = {k: float(meta["merge_" + k]) for k in ("w_old", "w_new", "demote", "add")
+                      if "merge_" + k in meta}
+                cands = _cnn.merge(cands, cc, mpp, **mw)
+            info["image_network"] = {"used": meta.get("mode") == "merge",
+                                     "test_ap_network": meta.get("test_ap_network"),
+                                     "test_ap_program": meta.get("test_ap_program"),
+                                     "test_ap_combined": meta.get("test_ap_combined")}
     extra = field_marks(rgb, cls, mpp) + forest_marks(rgb, cls, mpp)
     for c in extra:
         r_, c_ = int(np.clip(c["row"], 0, valid.shape[0] - 1)), int(np.clip(c["col"], 0, valid.shape[1] - 1))
@@ -500,9 +554,15 @@ def analyse_image(rgb, valid, mpp, sun_az=None, sun_el=30.0, lat=None, north_up_
 
 # --------------------------------------------------------------------------- fusion
 
-def fuse(per_image, mpp, radius_m=4.0):
-    """Merge candidates from several aligned images. A place flagged by several signals
-    or several images is more convincing than one blob in one picture."""
+def fuse(per_image, mpp, radius_m=4.0, n_pictures=None):
+    """Merge candidates from several aligned pictures of one place.
+
+    With several pictures, a spot is ranked first by HOW MANY pictures show it, then by how
+    strong it is in those: confidence = (pictures showing it - 1 + mean strength there) / pictures.
+    A faint spot that comes back in three different years beats one clear-looking spot in a
+    single year. Tested on 55 marked places with 2-6 years each: ranking quality 0.22 for single
+    pictures, 0.35 with this rule (0.29 when only the strongest picture counts)."""
+    n_pic = n_pictures or len(per_image)
     pts = []
     for idx, res in enumerate(per_image):
         for c in res["candidates"]:
@@ -524,7 +584,9 @@ def fuse(per_image, mpp, radius_m=4.0):
             if used[j] or pts[j][1]["type"] == "linear":
                 continue
             cj = pts[j][1]
-            if math.hypot(ci["row"] - cj["row"], ci["col"] - cj["col"]) * mpp <= radius_m:
+            # big soil / crop patches wander more between years than a 3 m pit: allow half their size
+            rad = max(radius_m, 0.5 * min(ci.get("diameter_m") or 0, cj.get("diameter_m") or 0, 40.0))
+            if math.hypot(ci["row"] - cj["row"], ci["col"] - cj["col"]) * mpp <= rad:
                 grp.append(pts[j])
                 used[j] = True
         groups.append(grp)
@@ -539,7 +601,16 @@ def fuse(per_image, mpp, radius_m=4.0):
         # hollow and a dark/green spot in the SAME picture are usually the same patch of grass.
         best = max(c["confidence"] for _, c in grp)
         snow = any(c.get("kind") == "snow_patch" for _, c in grp)
-        conf = best + 0.2 * (len(images) - 1) + (0.15 if snow and main.get("kind") != "snow_patch" else 0)
+        if n_pic > 1:
+            per = {}
+            for i, c in grp:
+                per[i] = max(per.get(i, 0.0), c["confidence"])
+            conf = (len(per) - 1 + sum(per.values()) / len(per)) / n_pic
+            main["confidence_best_picture"] = round(best, 2)
+            main["pictures_total"] = n_pic
+        else:
+            conf = best
+        conf += 0.15 if snow and main.get("kind") != "snow_patch" else 0
         main["confidence"] = round(min(1.0, conf), 2)
         if main["type"] == "mark" and any(c["type"] == "pit" for _, c in grp):
             main["type"] = "pit"

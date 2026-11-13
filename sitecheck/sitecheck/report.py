@@ -144,7 +144,9 @@ def build_prompt(report) -> str:
         "site, or nothing - and roughly which period, using my finds and the landscape.",
         "3. If a settlement is likely, estimate its size (households / inhabitants) and explain the basis.",
         "4. List what would most change your conclusion (what I should check on the ground or on old maps).",
-        "5. Be explicit about uncertainty. Treat `confidence` as shape quality, not as proof, "
+        "5. Be explicit about uncertainty. `confidence` (0-1) is how clearly a feature stands out; with "
+        "several pictures it counts first in how many of them it shows (`seen_in_images` of "
+        "`pictures_total`). It is not proof. Treat "
         f"and the score ({sc['points']}/100, {sc['band']}) as a crude heuristic.",
         "",
         "Field notes: values with source `user` come from me; `computed` values were calculated "

@@ -33,7 +33,7 @@ def scale_from_known(spec):
 
 def run_images(paths, out_dir, lat=None, lon=None, mpp=None, known=None, spot_px=None,
                masks=(), sun_az=None, sun_el=30.0, north_deg=0.0, context_path=None,
-               weights_path=None, water_m=None):
+               weights_path=None, water_m=None, outlines=False):
     os.makedirs(out_dir, exist_ok=True)
     warnings = []
     if known:
@@ -55,6 +55,12 @@ def run_images(paths, out_dir, lat=None, lon=None, mpp=None, known=None, spot_px
     # --- align every other image to the first ------------------------------------------
     warps, align_info = [np.eye(2, 3, dtype=np.float32)], [{"image": 1, "reference": True}]
     for k, (rgb, valid) in enumerate(imgs[1:], 2):
+        if abs(rgb.shape[0] - H) <= 4 and abs(rgb.shape[1] - W) <= 4:
+            # same size = the same view (camera not moved): never dropped, only a small correction
+            wmat, inf = im.refine_same_view(ref_rgb, ref_valid, rgb, valid, mpp)
+            align_info.append({"image": k, "same_view": True, "ok": True, **inf})
+            warps.append(wmat)
+            continue
         wmat, cc = im.align(ref_rgb, ref_valid, rgb, valid)
         sc = math.sqrt(abs(np.linalg.det(wmat[:, :2])))
         good = cc > 0.3 and 0.8 < sc < 1.25
@@ -67,7 +73,7 @@ def run_images(paths, out_dir, lat=None, lon=None, mpp=None, known=None, spot_px
     # --- analyse each image ----------------------------------------------------------------
     results, reliefs = [], []
     for k, ((rgb, valid), wmat) in enumerate(zip(imgs, warps)):
-        r = im.analyse_image(rgb, valid, mpp, sun_az, sun_el, lat, north_deg)
+        r = im.analyse_image(rgb, valid, mpp, sun_az, sun_el, lat, north_deg, scale_known=scale_known)
         r["info"]["image"] = os.path.basename(paths[k])
         # candidates -> reference pixel coordinates
         if wmat is not None and k > 0:
@@ -146,11 +152,12 @@ def run_images(paths, out_dir, lat=None, lon=None, mpp=None, known=None, spot_px
                      and math.hypot(y["row"] - x["row"], y["col"] - x["col"]) * mpp < 30]
             if twins:
                 tw = min(twins, key=lambda y: y["chance"])
-                if any(x is r_ or tw in r_.get("_twins", []) for r_ in rows):
+                # already counted from the other side (x is somebody's twin, or tw already used)
+                if any(x in r_.get("_twins", []) or tw is r_ or tw in r_.get("_twins", []) for r_ in rows):
                     continue
                 x["_twins"] = [tw]
                 x["chance_single"] = x["chance"]
-                x["chance"] = round(x["chance"] * tw["chance"], 4)
+                x["chance"] = round(min(1.0, x["chance"] * tw["chance"] * max(1, n_tried - 1)), 4)
                 x["seen_in_images"] = sorted(set(x["seen_in_images"] + tw["seen_in_images"]))
                 x["note"] += f" SAME ROW SEEN IN PICTURE {tw['seen_in_images'][0]} - combined chance {x['chance'] * 100:.1f}%."
             else:
@@ -164,6 +171,10 @@ def run_images(paths, out_dir, lat=None, lon=None, mpp=None, known=None, spot_px
                                 "weak presumption" if x["chance"] <= 0.20 else "none")
             x["confidence"] = round(float(np.clip(1 - x["chance"] * 4, 0.05, 0.95)) *
                                     (0.5 if x.get("along_cultivation") else 1.0), 2)
+            if len(x["seen_in_images"]) < 2:
+                # the chance test assumes patches fall independently; streaky, mottled soil breaks that
+                x["note"] += (" Seen in ONE picture only: on 25 marked empty fields with patchy soil, 4 gave a "
+                              "row like this. The same row in another year is what makes it trustworthy.")
             rows.append(x)
     # (tested on 15 marked empty fields: with a 30% cut 4 of them got a "weak presumption", with 20% 2)
     rows = [x for x in rows if x["chance"] <= 0.20]
@@ -196,7 +207,8 @@ def run_images(paths, out_dir, lat=None, lon=None, mpp=None, known=None, spot_px
     rows = kept
     pattern_info = {"patches_and_hollows_examined": n_patch, "pictures_searched": n_tried, "rows_found": len(rows)}
 
-    fused = im.fuse([r if (k == 0 or warps[k] is not None) else {"candidates": []} for k, r in enumerate(results)], mpp)
+    fused = im.fuse([r if (k == 0 or warps[k] is not None) else {"candidates": []} for k, r in enumerate(results)], mpp,
+                    n_pictures=sum(1 for k in range(len(results)) if k == 0 or warps[k] is not None))
     for k, r in enumerate(results):        # unaligned images: keep their own candidates, unmerged
         if k and warps[k] is None:
             for c in r["candidates"]:
@@ -209,8 +221,12 @@ def run_images(paths, out_dir, lat=None, lon=None, mpp=None, known=None, spot_px
     fused.sort(key=lambda c: -c["confidence"])
     n_all = len(fused)
     group = lambda c: (c.get("kind") in FIELD_FOREST) and c["type"] != "pit"
-    fused = (rows[:6] + [c for c in fused if not group(c) and c["confidence"] >= 0.5][:40]
-             + [c for c in fused if group(c) and c["confidence"] >= 0.35][:20])
+    # what gets into the report: strong in at least one picture (as before), listed in the new order.
+    # (With several pictures `confidence` counts pictures first; a foundation that shows in one
+    # year only would otherwise never be listed.)
+    strong = lambda c: max(c["confidence"], c.get("confidence_best_picture", 0.0))
+    fused = (rows[:6] + [c for c in fused if not group(c) and strong(c) >= 0.5][:40]
+             + [c for c in fused if group(c) and strong(c) >= 0.35][:20])
     fused.sort(key=lambda c: -c["confidence"])
     if n_all > len(fused):
         warnings.append(f"{n_all - len(fused)} weaker single-image candidates were dropped (kept the best {len(fused)}).")
@@ -247,6 +263,32 @@ def run_images(paths, out_dir, lat=None, lon=None, mpp=None, known=None, spot_px
     spot = {"landform": None, "slope_deg": None}     # unknown without elevation data
     for f in fused:                                  # the score weighs one-picture evidence lower
         f["n_images"] = len(results)
+    # closed outlines (possible bank / rampart / old enclosure): shown, never scored - on the marked
+    # test places they appear as often without a fortress as with one; the same outline in several
+    # years is the only thing reported
+    from . import enclosure as en
+    per_pic = []
+    want_outlines = outlines
+    for k, ((rgb_k, valid_k), wmat, r) in enumerate(zip(imgs, warps, results)):
+        if not want_outlines or (wmat is None and k > 0):
+            continue
+        found = en.find_enclosures(rgb_k, valid_k, mpp, max_n=3, classes=r["classes"])
+        if k > 0:
+            Ainv = np.linalg.inv(np.vstack([wmat, [0, 0, 1]]))
+            for o in found:
+                o["contour_px"] = [[float((Ainv @ [c_, r_, 1])[1]), float((Ainv @ [c_, r_, 1])[0])]
+                                   for r_, c_ in o["contour_px"]]
+        per_pic.append(found)
+    outlines = en.outlines_over_pictures(per_pic, (H, W), mpp)
+    n_pic_o = len(per_pic)
+    outlines = [o for o in outlines if len(o["seen_in_images"]) >= 2][:3] if n_pic_o >= 2 else outlines[:1]
+    for o in outlines:
+        o["pictures_searched"] = n_pic_o
+        o["note"] = (f"closed outline about {o['size_m'][0]} x {o['size_m'][1]} m ({o['area_ha']} ha), "
+                     + (f"found in {len(o['seen_in_images'])} of {n_pic_o} pictures. " if n_pic_o >= 2
+                        else "one picture only. ")
+                     + "Could be a bank, rampart or old enclosure - but groves, ponds and single plots give "
+                       "the same kind of outline, so this adds nothing to the score. Check on the ground / old maps.")
     sc = score.compute(spot, water, fused, ctx, score.load_weights(weights_path))
 
     report = {
@@ -264,6 +306,7 @@ def run_images(paths, out_dir, lat=None, lon=None, mpp=None, known=None, spot_px
             "image_north_deg": north_deg,
             "per_image": [r["info"] for r in results],
             "patterns": pattern_info,
+            "outlines": outlines,
         },
         "context": ctx,
         "terrain": {"_source": "not available in screenshot mode (no elevation data)"},
@@ -300,7 +343,8 @@ def run_images(paths, out_dir, lat=None, lon=None, mpp=None, known=None, spot_px
     np.savez_compressed(os.path.join(out_dir, "layers.npz"), z=relief, lrm=relief,
                         slope=np.zeros_like(relief), hillshade=gray, photo=(ref_rgb * 255).astype(np.uint8),
                         spot_rc=np.array([round(sy), round(sx)]), cell=np.array(mpp))
-    render_images(ref_rgb, relief, fused, (sx, sy), mpp, out_dir, [imgs[k][0] for k in range(len(imgs))], warps)
+    render_images(ref_rgb, relief, fused, (sx, sy), mpp, out_dir, [imgs[k][0] for k in range(len(imgs))], warps,
+                  outlines=outlines)
     save_viewer_layers(out_dir, ref_rgb, relief, results[0], imgs, warps, mpp)
     return report
 
@@ -360,7 +404,8 @@ def _public_img(c):
               "area_m2", "cluster_size", "in_field", "parallel_rows", "group_size", "patch_family", "n_patches",
               "spacing_m", "spacing_variation", "missing_in_row", "bearing_deg", "mean_patch_m", "chance",
               "members_px", "along_cultivation", "chance_single", "presumption", "street_px", "offset_m",
-              "expected_but_missing_px", "chance_search", "learned_p", "ends_px", "n_images"):
+              "expected_but_missing_px", "chance_search", "learned_p", "ends_px", "n_images",
+              "confidence_best_picture", "pictures_total"):
         if k in c:
             d[k] = c[k]
     return d
@@ -400,13 +445,18 @@ def _draw(ax, feats, to_xy=lambda r, c: (c, r), mpp=0.3, scale=1.0):
                     weight="bold", bbox=dict(boxstyle="round,pad=0.12", fc=col, ec="none", alpha=.85))
 
 
-def render_images(ref_rgb, relief, feats, spot, mpp, out_dir, rgbs, warps):
+def render_images(ref_rgb, relief, feats, spot, mpp, out_dir, rgbs, warps, outlines=()):
     H, W = ref_rgb.shape[:2]
     figw = 16
     figh = figw * H / W + 0.8
     fig, ax = plt.subplots(figsize=(figw, figh), dpi=100)
     ax.imshow(ref_rgb)
     _draw(ax, feats, mpp=mpp)
+    for o in outlines or ():
+        P = np.array(o["contour_px"] + o["contour_px"][:1])
+        ax.plot(P[:, 1], P[:, 0], color="#00e5ff", lw=1.6, ls="--")
+        ax.text(P[0, 1], P[0, 0], f"outline ({len(o.get('seen_in_images', [1]))} of {o.get('pictures_searched', 1)} pictures)",
+                color="#00e5ff", fontsize=8, weight="bold")
     ax.plot(*spot, marker="+", ms=24, mew=3, color="black")
     ax.plot(*spot, marker="+", ms=20, mew=1.4, color="white")
     _legend(ax)

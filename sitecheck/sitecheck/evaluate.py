@@ -17,8 +17,8 @@ from scipy import ndimage as ndi
 
 def match(cands, gt, shape, extra_px=6.0, keep_ignored=False):
     """cands: [{row, col, confidence}] -> list of (confidence, is_hit, gt_ids), set of found GT ids.
-    gt id -1 = inside a marked zone. Candidates on a marked road or inside a marked enclosure
-    (but not on an object) are left out."""
+    gt id -1 = inside a marked zone. Candidates on a marked road, inside a marked enclosure / fortress,
+    in a white "not sure" loop or outside the purple "checked" outline (and not on an object) are left out."""
     objs = gt["objects"]
     zones = gt["zones"]
     found = set()
@@ -34,7 +34,10 @@ def match(cands, gt, shape, extra_px=6.0, keep_ignored=False):
         ri, ci = int(np.clip(r, 0, shape[0] - 1)), int(np.clip(cc, 0, shape[1] - 1))
         if not ids and zones.any() and zones[ri, ci]:
             ids = [-1]
-        if not ids and any(gt.get(k) is not None and gt[k][ri, ci] for k in ("roads", "enclosures")):
+        ch = gt.get("checked")
+        outside = ch is not None and ch.any() and not ch[ri, ci]
+        if not ids and (outside or any(gt.get(k) is not None and gt[k][ri, ci]
+                                       for k in ("roads", "enclosures", "unsure", "ramparts"))):
             if keep_ignored:                  # (training: keep the slot, label unknown)
                 scored.append((float(c.get("confidence", 0.5)), False, None))
             continue     # on a marked road / inside a marked yard: neither right nor wrong
@@ -132,13 +135,17 @@ def run_folder(root, out_dir=None, mpp=0.3, use_model=True, log=print):
     import json
     import os
     from . import groundtruth as G, imagery as I
-    rows = []
+    rows, together = [], []
     for e in G.discover(root):
-        ref, gt, seasons = G.prepare(e, log=lambda *a: None)
         key = f"{e['category']}/{e['area']}"
+        ref, gt, seasons = G.prepare(e, log=lambda *a: None)
+        if not e.get("negative") and not gt["objects"]:
+            log(f"  {key}: no single objects marked (ramparts / roads only) - not scored for spots")
+            continue
         if out_dir:
             os.makedirs(out_dir, exist_ok=True)
             G.draw_gt(ref, gt, os.path.join(out_dir, f"{e['category']}_{e['area']}_marks.jpg"))
+        per_year, ap_single = [], []
         for s in seasons:
             if not s["ok"]:
                 log(f"  {key} {s['name']}: could not be aligned to the marked picture - skipped")
@@ -158,11 +165,24 @@ def run_folder(root, out_dir=None, mpp=0.3, use_model=True, log=print):
             scored, found = match(cands, gt, rgb.shape[:2])
             S = summarize(scored, found, n)
             ap = average_precision(scored, n) if n else 0.0
+            vis = s.get("visibility") or "not stated"
             rows.append({"category": e["category"], "area": e["area"], "picture": s["name"], "objects": n,
                          "candidates": S["candidates"], "recall": S["recall"], "precision": S["precision"],
-                         "AP": round(ap, 3)})
-            log(f"  {key:22s} {s['name']:18s} marked {n:3d}  candidates {S['candidates']:4d}  "
+                         "AP": round(ap, 3), "visibility": vis, "date": s.get("date"),
+                         "fooled_by": fooled_by(cands, gt, rgb.shape[:2])})
+            if vis != "not visible":
+                per_year.append({"candidates": cands})
+                ap_single.append(ap)
+            log(f"  {key:22s} {s['name']:18s} {vis:11s} marked {n:3d}  candidates {S['candidates']:4d}  "
                 f"recall {S['recall'] if S['recall'] is not None else '-'}  precision {S['precision']:.2f}  AP {ap:.2f}")
+        if len(per_year) >= 2:          # all years of the place put together (as `sitecheck image` does)
+            fused = I.fuse(per_year, seasons[0].get("mpp", mpp))
+            sc_f, _ = match(fused, gt, ref.shape[:2])
+            ap_f = average_precision(sc_f, len(gt["objects"]))
+            together.append({"category": e["category"], "area": e["area"], "pictures": len(per_year),
+                             "AP_together": round(ap_f, 3),
+                             "AP_single_mean": round(float(np.mean(ap_single)), 3)})
+            log(f"  {key:22s} {len(per_year)} pictures together: AP {ap_f:.2f}")
     cats = {}
     for r in rows:
         if not r.get("negative"):
@@ -176,7 +196,25 @@ def run_folder(root, out_dir=None, mpp=0.3, use_model=True, log=print):
                       "AP": round(float(np.mean([x["AP"] for x in v])), 2)}
         log(f"{c:16s} pictures {len(v):2d}  recall {summary[c]['recall']:.2f}  precision "
             f"{summary[c]['precision']:.2f}  AP {summary[c]['AP']:.2f}")
+    pos = [r for r in rows if not r.get("negative")]
+    by_vis = {}
+    for v_ in ("visible", "doubtful", "not visible", "not stated"):
+        sel = [r for r in pos if r.get("visibility") == v_]
+        if sel:
+            by_vis[v_] = {"pictures": len(sel), "AP": round(float(np.mean([x["AP"] for x in sel])), 2),
+                          "recall": round(float(np.mean([x["recall"] or 0 for x in sel])), 2)}
+            log(f"marked things {v_:12s} pictures {len(sel):2d}  recall {by_vis[v_]['recall']:.2f}  AP {by_vis[v_]['AP']:.2f}")
+    if together:
+        a_t = float(np.mean([t["AP_together"] for t in together]))
+        a_s = float(np.mean([t["AP_single_mean"] for t in together]))
+        log(f"years together   places {len(together):2d}  AP {a_t:.2f}  (the same places, one picture at a time: {a_s:.2f})")
+        summary["years_together"] = {"places": len(together), "AP": round(a_t, 2), "AP_single_pictures": round(a_s, 2)}
+    neg = [r for r in rows if r.get("negative")]
+    if neg:
+        log(f"empty places     pictures {len(neg):2d}  spots scored >= 0.5 per picture: "
+            f"{np.mean([r['false_strong'] for r in neg]):.1f}")
+    summary["by_visibility"] = by_vis
     if out_dir:
         with open(os.path.join(out_dir, "evaluation.json"), "w") as fh:
-            json.dump({"pictures": rows, "summary": summary}, fh, indent=1, default=float)
+            json.dump({"pictures": rows, "summary": summary, "years_together": together}, fh, indent=1, default=float)
     return rows, summary

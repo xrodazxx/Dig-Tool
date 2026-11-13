@@ -71,23 +71,29 @@ def run_batch(folder, out_root, mpp=None, log=print):
         name = os.path.basename(d.rstrip("/"))
         imgs = sorted([f for f in glob.glob(os.path.join(d, "*")) if f.lower().endswith(IMG_EXT)], key=_sharpness,
                       reverse=True)                    # sharpest, largest first = reference
+        clean = [f for f in imgs if not any(k in os.path.basename(f).lower() for k in ("note", "mark"))]
+        imgs = clean or imgs                          # a copy with drawn marks is not a picture to analyse
         txts = glob.glob(os.path.join(d, "*.txt"))
         if not imgs:
             log(f"[{name}] no images, skipped")
             continue
+        from . import scale as _sc
+        notes = _sc.read_folder(d, [os.path.basename(p) for p in imgs])
         lat = lon = None
-        if txts:
+        if notes.get("_area", {}).get("lat") is not None:          # "coord (54 19 44 N 50 19 38 E)" in the notes
+            lat, lon = notes["_area"]["lat"], notes["_area"]["lon"]
+        elif txts:
             try:
                 with open(txts[0], encoding="utf-8", errors="ignore") as fh:
-                    lat, lon = parse_coords(fh.read())
+                    txt_ = fh.read()
+                if not _sc.looks_like_notes(txt_):
+                    lat, lon = parse_coords(txt_)
             except ValueError as ex:
                 log(f"[{name}] {ex}")
         # eye altitude in the notes ("height 473 m") -> screen scale of the reference picture
         mpp_d = mpp
         if mpp is None:
-            from .scale import read_folder
-            sc = read_folder(d, [os.path.basename(p) for p in imgs]).get(os.path.basename(imgs[0]), {})
-            mpp_d = sc.get("mpp")
+            mpp_d = notes.get(os.path.basename(imgs[0]), {}).get("mpp")
         out = os.path.join(out_root, name)
         log(f"[{name}] {len(imgs)} image(s), {lat}, {lon}" + (f", {mpp_d} m/px" if mpp_d else ""))
         try:

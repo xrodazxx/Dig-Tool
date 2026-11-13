@@ -79,14 +79,24 @@ def discover(root):
         names = [os.path.basename(f).lower() for f in files]
         marked = [f for f, n in zip(files, names) if any(k in n for k in MARK_KEYS)]
         plain = [f for f in files if f not in marked]
-        if not marked or not plain:
+        if not plain:
+            continue
+        if not marked:        # an area folder with pictures but no marked copy: nothing stood there
+            sc = SC.read_folder(d, [os.path.basename(f) for f in files])
+            same_place = len({small_[0] for small_ in (_small(f) for f in files)}) == 1 and len(files) > 1
+            for f in files:
+                out.append({"category": os.path.basename(os.path.dirname(d)),
+                            "area": os.path.basename(d) + "_" + os.path.splitext(os.path.basename(f))[0],
+                            "path": d, "ref": f, "pairs": [], "marked": None, "others": [],
+                            "lat": sc.get("_area", {}).get("lat"), "lon": sc.get("_area", {}).get("lon"),
+                            "negative": True, "scale": sc, "same_place": same_place})
             continue
         # the main marked copy first ("marks.png" before "FieldMarks.png")
         marked.sort(key=lambda f: (len(os.path.basename(f)), f))
         small = {f: _small(f) for f in files}
         pairs = []
         for m in marked:
-            same = [f for f in plain if small[f][0] == small[m][0]]
+            same = [f for f in plain if _near(small[f][0], small[m][0])]
             if same:     # the picture the marks were drawn on = the most similar one
                 ref = min(same, key=lambda f: float(np.abs(small[f][1] - small[m][1]).mean()))
             else:
@@ -99,14 +109,19 @@ def discover(root):
         for t in glob.glob(os.path.join(d, "*.txt")):
             try:
                 with open(t, encoding="utf-8", errors="ignore") as fh:
-                    lat, lon = parse_coords(fh.read())
+                    txt_ = fh.read()
+                if not SC.looks_like_notes(txt_):      # (notes are read below; their numbers are not coordinates)
+                    lat, lon = parse_coords(txt_)
             except ValueError:
                 pass
+        sc_ = SC.read_folder(d, [os.path.basename(f) for f in files])
+        if sc_.get("_area", {}).get("lat") is not None:
+            lat, lon = sc_["_area"]["lat"], sc_["_area"]["lon"]
         top = os.path.dirname(d) == os.path.normpath(root)
         out.append({"category": os.path.basename(d) if top else os.path.basename(os.path.dirname(d)),
                     "area": "1" if top else os.path.basename(d), "path": d,
                     "ref": ref, "pairs": pairs, "marked": pairs[0][1], "others": others, "lat": lat, "lon": lon,
-                    "negative": False, "scale": SC.read_folder(d, [os.path.basename(f) for f in files])})
+                    "negative": False, "scale": sc_})
     return out
 
 
@@ -162,10 +177,13 @@ COLOUR_RULES = {
     "green":  lambda H, S, V: (S > 0.35) & (V > 0.35) & (H >= 75) & (H < 170),
     "blue":   lambda H, S, V: (S > 0.35) & (V > 0.3) & (H >= 185) & (H < 265),
     "black":  lambda H, S, V: V < 0.25,
+    "white":  lambda H, S, V: (S < 0.08) & (V > 0.93),
+    "purple": lambda H, S, V: (S > 0.4) & (V > 0.4) & (H >= 268) & (H < 335),
 }
 # what each colour means (the user's General_Info.txt); red = old one-colour packs
-COLOUR_MEANING = {"red": "pit", "blue": "pit", "yellow": "foundation", "orange": "road",
-                  "green": "rampart", "black": "vegetation"}
+COLOUR_MEANING = {"red": "pit", "blue": "water", "yellow": "foundation", "orange": "road",
+                  "green": "rampart", "black": "vegetation", "white": "unsure",
+                  "purple": "checked area"}
 
 
 def colour_strokes(ref_rgb, marked):
@@ -180,6 +198,8 @@ def colour_strokes(ref_rgb, marked):
         m = D & rule(H, S, V)
         if name == "black":                       # must be darker than the picture underneath
             m &= V < cv2.cvtColor(np.clip(ref_rgb, 0, 1).astype(np.float32), cv2.COLOR_RGB2HSV)[..., 2] - 0.1
+        if name == "white":                       # ... or clearly lighter
+            m &= V > cv2.cvtColor(np.clip(ref_rgb, 0, 1).astype(np.float32), cv2.COLOR_RGB2HSV)[..., 2] + 0.15
         m = ndi.binary_closing(m, iterations=2)
         if name != "red":                         # keep pen strokes only: thin and long, not blotches
             keep = np.zeros(m.shape, bool)
@@ -289,10 +309,12 @@ def extract(ref_rgb, marked_warped):
     if not multi:
         g = _extract_strokes(red_mask(marked_warped) & ~red_mask(ref_rgb), "object")
         g["lookalikes"], g["ramparts"], g["rampart_lines"] = [], np.zeros((H, W), bool), []
+        for k in ("rampart_strokes", "water", "unsure", "checked"):
+            g[k] = np.zeros((H, W), bool)
         return g
     # several colours: pits (red/blue), foundations (yellow), road (orange), rampart (green),
     # vegetation (black outlines) and animals (red crosses) as named look-alikes
-    red = cs["red"] | cs["blue"]
+    red = cs["red"]
     lookalikes = []
     lab = measure.label(red)
     inside_loops = ndi.binary_fill_holes(red) & ~red        # marks drawn inside a red loop are pits
@@ -312,6 +334,40 @@ def extract(ref_rgb, marked_warped):
     g["roads"] = g["roads"] | gy["roads"] | roads
     g["streets"] += gy["streets"] + road_lines
     g["ramparts"], g["rampart_lines"] = _strip(cs["green"], H, W)
+    # the drawn rampart lines themselves (edges of the bank), for testing a rampart detector
+    gs = np.zeros((H, W), bool)
+    for p in measure.regionprops(measure.label(ndi.binary_dilation(cs["green"], iterations=1))):
+        if max(p.bbox[2] - p.bbox[0], p.bbox[3] - p.bbox[1]) > 0.08 * max(H, W):
+            gs[p.coords[:, 0], p.coords[:, 1]] = True
+    g["rampart_strokes"] = skeletonize(gs)
+    # water (blue): a closed outline is filled, an open bank line becomes a strip
+    water = np.zeros((H, W), bool)
+    if cs["blue"].any():
+        b_ = ndi.binary_dilation(cs["blue"], iterations=2)
+        water = ndi.binary_fill_holes(b_) | _strip(cs["blue"], H, W)[0]
+    g["water"] = water
+    # white loops: "maybe, not sure" - neither right nor wrong
+    unsure = np.zeros((H, W), bool)
+    for p in measure.regionprops(measure.label(ndi.binary_dilation(cs["white"], iterations=1))):
+        h_ = cv2.convexHull(np.column_stack([p.coords[:, 1], p.coords[:, 0]]).astype(np.int32))
+        m_ = np.zeros((H, W), np.uint8)
+        cv2.fillPoly(m_, [h_], 1)
+        if m_.sum() < 0.05 * H * W:
+            unsure |= ndi.binary_dilation(m_.astype(bool), iterations=3)
+    g["unsure"] = unsure
+    # purple outline: the part of the picture that was actually checked; the rest is ignored
+    checked = np.zeros((H, W), bool)
+    if cs["purple"].sum() > 150:
+        pm = ndi.binary_dilation(cs["purple"], iterations=2)
+        filled = ndi.binary_fill_holes(pm)
+        if filled.sum() < 1.5 * pm.sum():            # the loop was left open: close it by its hull
+            ys, xs = np.nonzero(pm)
+            h_ = cv2.convexHull(np.column_stack([xs, ys]).astype(np.int32))
+            m_ = np.zeros((H, W), np.uint8)
+            cv2.fillPoly(m_, [h_], 1)
+            filled = m_.astype(bool)
+        checked = filled
+    g["checked"] = checked
     g["lookalikes"] = lookalikes + _lookalikes(cs["black"], "vegetation", H, W)
     g["colours"] = {k: v for k, v in n_px.items() if v > 0}
     return g
@@ -481,7 +537,8 @@ def _extract_strokes(strokes, kind="object"):
 def _empty_gt(shape):
     z = np.zeros(shape, bool)
     return {"objects": [], "zones": z, "streets": [], "legend": z.copy(), "roads": z.copy(),
-            "enclosures": z.copy(), "lookalikes": [], "ramparts": z.copy(), "rampart_lines": []}
+            "enclosures": z.copy(), "lookalikes": [], "ramparts": z.copy(), "rampart_lines": [],
+            "rampart_strokes": z.copy(), "water": z.copy(), "unsure": z.copy(), "checked": z.copy()}
 
 
 def _scale_of(entry, path):
@@ -493,20 +550,39 @@ def _scale_of(entry, path):
     d = {}
     if "mpp" in refd or "mpp" in own:
         d["mpp"] = refd.get("mpp", own.get("mpp"))
-    if "imagery_m" in own:
-        d["imagery_m"] = own["imagery_m"]
+    for k in ("imagery_m", "date", "provider", "visibility", "sun_elevation", "sun_azimuth"):
+        if k in own:
+            d[k] = own[k]
     return d
 
 
+def _near(a, b, tol=4):
+    return abs(a[0] - b[0]) <= tol and abs(a[1] - b[1]) <= tol
+
+
 def _to_ref(ref, rgb):
-    """Same size = already aligned by the user; otherwise align automatically."""
+    """Same size (within a few pixels) = already aligned by the user; otherwise align automatically."""
     if rgb.shape == ref.shape:
         return rgb, 1.0, 1.0
+    if _near(rgb.shape, ref.shape):
+        out = np.zeros_like(ref)
+        h, w = min(ref.shape[0], rgb.shape[0]), min(ref.shape[1], rgb.shape[1])
+        out[:h, :w] = rgb[:h, :w]
+        return out, 1.0, 1.0
     w_rgb, _, cc, sc = align_pair(ref, rgb)
     return w_rgb, cc, sc
 
 
-def prepare(entry, log=print):
+def _refined(ref, rgb, mpp):
+    """A same-view picture with the small offset between imagery dates taken out (see
+    imagery.refine_same_view). Returns (picture in the reference grid, warp)."""
+    wmat, _ = im.refine_same_view(ref, ref.max(-1) > 0.02, rgb, rgb.max(-1) > 0.02, mpp or 0.3)
+    if np.allclose(wmat, np.eye(2, 3), atol=1e-6):
+        return rgb, wmat
+    return im.warp_to(ref.shape[:2], rgb, wmat), wmat
+
+
+def prepare(entry, log=print, refine=True):
     """Load the reference, extract ground truth (merged over all marked copies), and bring every
     other picture into the reference grid."""
     ref = load_rgb(entry["ref"])
@@ -516,9 +592,17 @@ def prepare(entry, log=print):
         return ref, gt, [dict({"name": os.path.basename(entry["ref"]), "rgb": ref, "ok": True, "corr": 1.0},
                               **_scale_of(entry, entry["ref"]))]
     gt = None
+    ref_mpp = _scale_of(entry, entry["ref"]).get("mpp")
     for r_path, m_path in entry.get("pairs") or [(entry["ref"], entry["marked"])]:
-        base = ref if r_path == entry["ref"] else _to_ref(ref, load_rgb(r_path))[0]
         mk_w, cc, sc = _to_ref(ref, load_rgb(m_path))
+        if r_path == entry["ref"]:
+            base = ref
+        else:                       # marks drawn on another year's picture: move both the same way
+            base = _to_ref(ref, load_rgb(r_path))[0]
+            if refine and base.shape == ref.shape:
+                base, wm_ = _refined(ref, base, ref_mpp)
+                if not np.allclose(wm_, np.eye(2, 3), atol=1e-6):
+                    mk_w = im.warp_to(ref.shape[:2], mk_w, wm_)
         g = extract(base, mk_w)
         if gt is None:
             gt = g
@@ -531,13 +615,16 @@ def prepare(entry, log=print):
             gt["streets"] += g["streets"]
             gt["lookalikes"] += g.get("lookalikes", [])
             gt["rampart_lines"] += g.get("rampart_lines", [])
-            for k in ("zones", "legend", "roads", "enclosures", "ramparts"):
+            for k in ("zones", "legend", "roads", "enclosures", "ramparts", "rampart_strokes", "water", "unsure", "checked"):
                 gt[k] = gt[k] | g[k]
     seasons = [dict({"name": os.path.basename(entry["ref"]), "rgb": ref, "ok": True, "corr": 1.0},
                     **_scale_of(entry, entry["ref"]))]
     for o in entry["others"]:
         rgb = load_rgb(o)
+        same_view = _near(rgb.shape, ref.shape)
         w_rgb, cc2, sc2 = _to_ref(ref, rgb)
+        if refine and same_view:
+            w_rgb, _ = _refined(ref, w_rgb, ref_mpp)
         ok = cc2 > 0.3 and 0.6 < sc2 < 1.6
         seasons.append(dict({"name": os.path.basename(o), "rgb": w_rgb, "ok": ok, "corr": round(cc2, 3)},
                             **_scale_of(entry, o)))
@@ -559,7 +646,14 @@ def draw_gt(ref_rgb, gt, path):
         m[rc[:, 0], rc[:, 1]] = True
         vis[m] = (0.6 * vis[m] + 0.4 * np.array(col)).astype(np.uint8)
         cv2.drawMarker(vis, (int(la["col"]), int(la["row"])), col, cv2.MARKER_TILTED_CROSS, 10, 2)
-    for k, col in (("roads", (255, 0, 255)), ("enclosures", (255, 255, 0)), ("ramparts", (0, 200, 0))):
+    rs = gt.get("rampart_strokes")
+    if rs is not None and rs.any():
+        vis[ndi.binary_dilation(rs, iterations=1)] = (0, 255, 0)
+    ch = gt.get("checked")
+    if ch is not None and ch.any():
+        vis[~ch] = (0.45 * vis[~ch]).astype(np.uint8)          # outside the checked area: dimmed
+    for k, col in (("roads", (255, 0, 255)), ("enclosures", (255, 255, 0)), ("ramparts", (0, 200, 0)),
+                   ("water", (0, 80, 255)), ("unsure", (255, 255, 255))):
         m = gt.get(k)
         if m is not None and m.any():
             vis[m] = (0.65 * vis[m] + 0.35 * np.array(col)).astype(np.uint8)

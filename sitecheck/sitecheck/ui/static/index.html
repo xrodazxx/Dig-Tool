@@ -140,6 +140,8 @@ footer{grid-column:1/4;display:flex;gap:18px;align-items:center;padding:0 12px;b
         <div><label>Sun azimuth (opt.)</label><input id="inSun" placeholder="auto"></div>
         <div style="display:flex;align-items:flex-end"><button class="primary" id="btnRun" style="width:100%">Run analysis</button></div>
       </div>
+      <label style="display:flex;gap:6px;align-items:center;margin-top:6px;font-weight:400" title="Possible banks / ramparts / old enclosures. Not scored: groves, ponds and single plots give the same kind of outline.">
+        <input type="checkbox" id="inOutl" style="width:auto"> also draw closed outlines (banks, ramparts)</label>
       <div id="jobState" class="muted" style="margin-top:6px"></div>
     </div>
 
@@ -240,7 +242,7 @@ async function reloadArea(fit){
   $("#areaSub").textContent = st.lat!=null ? `${st.lat.toFixed(5)}, ${st.lon.toFixed(5)}` : "no coordinates";
   $("#inCoords").value = st.coords_text || (st.lat!=null ? `${st.lat}, ${st.lon}` : "");
   $("#inMpp").value = st.mpp ?? ""; $("#inSun").value = st.sun_azimuth ?? "";
-  $("#inAlt").value = st.altitude ?? "";
+  $("#inAlt").value = st.altitude ?? ""; $("#inOutl").checked = !!st.outlines;
   $("#btnPrompt").disabled = $("#btnReport").disabled = !d.report;
   buildLayers(); renderSide(); setJob(d.job);
   const img = $("#img"); img.onload = () => { if (fit) fitView(); draw(); };
@@ -304,7 +306,7 @@ function renderSide(){
     el.className = "c" + (S.sel===f.id?" sel":"") + (f.user_status==="rejected"?" rejected":"");
     const size = f.type==="row" ? `${f.n_patches} × ${f.spacing_m} m` : (f.diameter_m ? `${f.diameter_m} m` : (f.length_m ? `${f.length_m} m` : ""));
     const extra = f.type==="row" ? `chance ${(f.chance*100).toFixed(0)}% · ${f.presumption||""}` :
-      `conf ${f.confidence}${f.seen_in_images && f.seen_in_images.length>1 ? " · both pictures" : ""}`;
+      `conf ${f.confidence}${f.seen_in_images && f.seen_in_images.length>1 ? ` · in ${f.seen_in_images.length}${f.pictures_total?" of "+f.pictures_total:""} pictures` : ""}`;
     el.innerHTML = `<span class="dot" style="background:${COLORS[k]||"#aaa"}"></span>
       <div><div class="t">#${f.id} ${NAMES[k]||k} <span class="m">${size}</span></div><div class="m">${extra}</div></div>
       <div class="acts"><button class="y ${f.user_status==="confirmed"?"on":""}" title="confirm">✓</button><button class="n ${f.user_status==="rejected"?"on":""}" title="reject">✗</button></div>`;
@@ -318,7 +320,8 @@ function renderSide(){
   if (f){
     det.style.display = "block";
     const rows = [["what", NAMES[kindOf(f)]||kindOf(f)], ["note", f.note], ["signals", (f.signals||[]).join(", ")],
-      ["pictures", (f.seen_in_images||[]).join(", ")], ["confidence", f.confidence],
+      ["pictures", (f.seen_in_images||[]).join(", ") + (f.pictures_total? ` (of ${f.pictures_total})`:"")], ["confidence", f.confidence],
+      ["strongest single picture", f.confidence_best_picture ?? "—"],
       ["position", f.x_m!==undefined ? `${f.x_m} m E, ${f.y_m} m N of the spot` : ""],
       ["coordinates", f.lat ? `${f.lat}, ${f.lon}` : ""], ["status", f.user_status]];
     if (f.type==="row") rows.splice(2,0,["spacing", `${f.spacing_m} m (±${Math.round((f.spacing_variation||0)*100)}%)`],
@@ -402,6 +405,11 @@ function draw(){
     for (const [r,c] of f.expected_but_missing_px) h += `<circle cx="${c}" cy="${r}" r="${Math.max(8*k, 4/mpp)}" fill="none" stroke="${col}" stroke-dasharray="${3*k} ${3*k}" stroke-width="${1.5*k}"/><text x="${c}" y="${r+4*k}" fill="${col}" font-size="${13*k}" text-anchor="middle">?</text>`;
   }
   S.seeds.forEach((p,i)=>{ h += `<circle cx="${p.x}" cy="${p.y}" r="${7*k}" fill="#7cf3ff" stroke="#003" stroke-width="${1.5*k}"/><text x="${p.x}" y="${p.y+4*k}" font-size="${10*k}" text-anchor="middle" fill="#003" font-weight="700">${i+1}</text>`; });
+  if (S.data.report && !S.hidden.has("outline")) for (const o of (S.data.report.data.outlines||[])){
+    const pts = o.contour_px.map(([r,c])=>`${c},${r}`).join(" ");
+    h += `<polygon points="${pts}" fill="none" stroke="#00e5ff" stroke-width="${1.8*k}" stroke-dasharray="${9*k} ${6*k}"><title>${esc(o.note||"")}</title></polygon>`;
+    h += label(o.contour_px[0][1], o.contour_px[0][0], `outline · ${(o.seen_in_images||[1]).length}/${o.pictures_searched||1} pictures`, "#00e5ff", k, "");
+  }
   S.pend.forEach(p=>{ h += `<circle cx="${p.x}" cy="${p.y}" r="${5*k}" fill="#ffd48a"/>`; });
   if (st.spot_px || (S.data.report && S.data.report.spot.spot_px)){
     const [x,y] = st.spot_px || S.data.report.spot.spot_px;
@@ -531,7 +539,8 @@ async function saveSettings(){
     mpp: $("#inMpp").value.trim() ? +$("#inMpp").value : null,
     altitude: $("#inAlt").value.trim() ? +$("#inAlt").value : null,
     view_width: $("#inVw").value.trim() ? +$("#inVw").value : null,
-    sun_azimuth: $("#inSun").value.trim() ? +$("#inSun").value : null};
+    sun_azimuth: $("#inSun").value.trim() ? +$("#inSun").value : null,
+    outlines: $("#inOutl").checked};
   if (body.mpp!==null) body.known = null;
   await post(`/api/areas/${encodeURIComponent(S.area)}/settings`, body);
 }
